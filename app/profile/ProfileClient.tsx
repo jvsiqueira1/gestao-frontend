@@ -14,12 +14,6 @@ export default function ProfileClient() {
   const [upgrading, setUpgrading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Debug: log user e searchParams
-  useEffect(() => {
-    console.log("[ProfilePage] user:", user);
-    console.log("[ProfilePage] searchParams.get('success'):", searchParams.get("success"));
-  }, [user, searchParams]);
-
   // Detectar retorno do checkout e atualizar usuário
   useEffect(() => {
     const success = searchParams.get("success");
@@ -138,7 +132,6 @@ export default function ProfileClient() {
   };
 
   if (!user) {
-    console.log("[ProfilePage] user está null ou undefined, exibindo loading...");
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <LoadingSpinner size="lg" text="Carregando perfil..." />
