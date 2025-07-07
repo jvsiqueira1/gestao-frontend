@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gestão de Gastos Pessoais – Frontend
 
-## Getting Started
+Este é o frontend do sistema de gestão de gastos pessoais, desenvolvido em [Next.js](https://nextjs.org) com TypeScript e integração total com Stripe para assinaturas.
 
-First, run the development server:
+## Funcionalidades
+- Cadastro e login de usuários
+- Dashboard financeiro
+- Gestão de categorias, receitas e despesas
+- Assinatura mensal via Stripe (reativação, cancelamento, bloqueio de acesso)
+- Controle de acesso por status de assinatura
+- Tema escuro/claro
 
+## Pré-requisitos
+- Node.js 18+
+- NPM, Yarn, PNPM ou Bun
+- Backend rodando (consulte o README do backend)
+- Conta Stripe (modo teste)
+
+## Instalação
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd frontend
+npm install # ou yarn, pnpm, bun
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Variáveis de Ambiente
+Crie um arquivo `.env.local` na pasta `frontend` com:
+```
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Rodando o Projeto
+```bash
+npm run dev
+# ou yarn dev, pnpm dev, bun dev
+```
+Acesse [http://localhost:3000](http://localhost:3000)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Integração com Stripe
+- O botão de assinatura cria uma sessão de checkout Stripe (modo assinatura)
+- Após o pagamento, o backend atualiza o status do usuário via webhook
+- Usuários com assinatura cancelada/paga pendente só acessam a página de perfil
 
-## Learn More
+## Fluxo de Autenticação e Assinatura
+- O contexto de autenticação (`AuthContext`) gerencia login, logout e atualização do usuário
+- O status da assinatura é checado em todas as páginas protegidas
+- O frontend exibe alertas e bloqueia navegação conforme o status
 
-To learn more about Next.js, take a look at the following resources:
+## Principais Comandos
+- `npm run dev` – inicia o servidor de desenvolvimento
+- `npm run build` – build de produção
+- `npm run start` – inicia o servidor em produção
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Dicas de Desenvolvimento
+- Edite as páginas em `app/`
+- Componentes reutilizáveis em `components/`
+- Contextos em `context/`
+- Integração com Stripe em `lib/api.ts`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Testando o Stripe localmente
+- Use o Stripe CLI: `stripe listen --forward-to localhost:4000/api/stripe/webhook`
+- Use cartões de teste: [Stripe Docs](https://stripe.com/docs/testing)
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> Dúvidas ou sugestões? Abra uma issue ou entre em contato!
