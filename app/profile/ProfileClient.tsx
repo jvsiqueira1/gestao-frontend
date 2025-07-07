@@ -263,6 +263,19 @@ export default function ProfileClient() {
               </div>
             </div>
           </div>
+          {/* Sidebar de Benefícios */}
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Benefícios do Plano Pago</h3>
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Dashboard completo</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Categorização de despesas</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Relatórios detalhados</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Exportação de dados</li>
+                <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Suporte prioritário</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
