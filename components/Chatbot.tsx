@@ -340,26 +340,25 @@ export default function Chatbot() {
     setIsSubmitting(true);
 
     try {
-      // Simular envio do email (em produção, você enviaria para um backend)
-      const mailtoLink = `mailto:suporte@gestaodegastos.com?subject=${encodeURIComponent(contactForm.subject)}&body=${encodeURIComponent(
-        `Nome: ${contactForm.name}\nEmail: ${contactForm.email}\n\nMensagem:\n${contactForm.message}`
-      )}`;
-      
-      window.open(mailtoLink, '_blank');
-      
-      // Adicionar mensagem de confirmação
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contactForm),
+      });
+
+      if (!res.ok) throw new Error('Erro ao enviar');
+
       const confirmationMessage: Message = {
         id: Date.now().toString(),
         text: '✅ Sua mensagem foi enviada com sucesso! Entraremos em contato em breve.',
         sender: 'bot',
         timestamp: new Date()
       };
-      
+
       setMessages(prev => [...prev, confirmationMessage]);
       hideContactForm();
-      
+
     } catch (error) {
-      console.error('Erro ao enviar formulário:', error);
       const errorMessage: Message = {
         id: Date.now().toString(),
         text: '❌ Erro ao enviar mensagem. Tente novamente ou envie diretamente para: suporte@gestaodegastos.com',
