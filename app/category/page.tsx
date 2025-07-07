@@ -31,13 +31,19 @@ export default function CategoryPage() {
 
   const fetchCategories = async () => {
     try {
+      console.log('Buscando categorias...');
       const res = await fetch(apiUrl(API_ENDPOINTS.CATEGORY), {
         headers: { Authorization: `Bearer ${token}` },
       });
+      
+      console.log('Resposta da busca:', { status: res.status, ok: res.ok });
+      
       const data = await res.json();
+      console.log('Dados recebidos:', data);
       
       // Verificar se os dados são um array antes de usar
       const categoriesArray = Array.isArray(data) ? data : [];
+      console.log('Categorias processadas:', categoriesArray.length);
       setCategories(categoriesArray);
     } catch (error) {
       console.error("Erro ao carregar categorias:", error);
@@ -55,6 +61,12 @@ export default function CategoryPage() {
         : apiUrl(API_ENDPOINTS.CATEGORY);
       
       const method = editingId ? "PUT" : "POST";
+      const requestBody = {
+        name: formData.name,
+        type: formData.type,
+      };
+      
+      console.log('Enviando requisição:', { url, method, body: requestBody });
       
       const res = await fetch(url, {
         method,
@@ -62,20 +74,27 @@ export default function CategoryPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name: formData.name,
-          type: formData.type,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('Resposta recebida:', { status: res.status, ok: res.ok });
+      
       if (res.ok) {
+        const responseData = await res.json();
+        console.log('Dados da resposta:', responseData);
+        
         setFormData({ name: "", type: "expense" });
         setShowForm(false);
         setEditingId(null);
-        fetchCategories();
+        await fetchCategories();
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+        console.error('Erro na resposta:', errorData);
+        alert(`Erro ao salvar categoria: ${errorData.error || 'Erro desconhecido'}`);
       }
     } catch (error) {
       console.error("Erro ao salvar categoria:", error);
+      alert('Erro ao salvar categoria. Verifique o console para mais detalhes.');
     } finally {
       setSubmitting(false);
     }
