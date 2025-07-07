@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
 import Button from "../../components/Button";
@@ -163,186 +163,188 @@ export default function ProfilePage() {
   const isTrialExpired = user.subscription_status === "trialing" && new Date(user.trial_end) < new Date();
 
   return (
-    <div className="bg-gray-50 dark-gradient-bg p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Perfil</h1>
-        {successMessage && (
-          <div className="mb-4 p-3 rounded bg-green-100 text-green-800 text-center font-medium">
-            {successMessage}
-          </div>
-        )}
-        {['canceled', 'past_due'].includes(user.subscription_status) && (
-          <div className="mb-4 p-3 rounded bg-yellow-100 text-yellow-800 text-center font-medium">
-            Para acessar todas as funcionalidades do sistema, é necessário regularizar sua assinatura.
-          </div>
-        )}
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner size="lg" text="Carregando perfil..." /></div>}>
+      <div className="bg-gray-50 dark-gradient-bg p-6">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Perfil</h1>
+          {successMessage && (
+            <div className="mb-4 p-3 rounded bg-green-100 text-green-800 text-center font-medium">
+              {successMessage}
+            </div>
+          )}
+          {['canceled', 'past_due'].includes(user.subscription_status) && (
+            <div className="mb-4 p-3 rounded bg-yellow-100 text-yellow-800 text-center font-medium">
+              Para acessar todas as funcionalidades do sistema, é necessário regularizar sua assinatura.
+            </div>
+          )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Informações do Usuário */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Card Principal */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center space-x-4 mb-6">
-                <div className="w-16 h-16 bg-cyan-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{user.name}</h2>
-                  <p className="text-gray-600 dark:text-gray-300">{user.email} • Membro desde {formatDate(user.created_at)}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
-                  <p className="text-gray-900 dark:text-white">{user.name}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                  <p className="text-gray-900 dark:text-white">{user.email}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.subscription_status)}`}>
-                    {getStatusLabel(user.subscription_status)}
-                  </span>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plano</label>
-                  <p className="text-gray-900 dark:text-white capitalize">{user.plan || "Gratuito"}</p>
-                </div>
-                {user.trial_end && user.subscription_status === "trialing" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Trial termina em
-                    </label>
-                    <p className={`${isTrialExpired ? "text-red-600" : "text-gray-900 dark:text-white"}`}>
-                      {formatDate(user.trial_end)}
-                    </p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Informações do Usuário */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Card Principal */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className="w-16 h-16 bg-cyan-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                    {user.name.charAt(0).toUpperCase()}
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Ações */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Ações</h3>
-              <div className="space-y-3">
-                {user.subscription_status === "trialing" && !isTrialExpired && (
-                  <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
-                    {upgrading ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" text="" />
-                        Processando...
-                      </div>
-                    ) : (
-                      "Fazer Upgrade para Plano Pago"
-                    )}
-                  </Button>
-                )}
-                {user.subscription_status === "active" && (
-                  <Button 
-                    onClick={handleCancelSubscription} 
-                    variant="secondary"
-                    disabled={cancelling}
-                    className="w-full"
-                  >
-                    {cancelling ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" text="" />
-                        Cancelando...
-                      </div>
-                    ) : (
-                      "Cancelar Assinatura"
-                    )}
-                  </Button>
-                )}
-                {isTrialExpired && (
-                  <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
-                    {upgrading ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" text="" />
-                        Processando...
-                      </div>
-                    ) : (
-                      "Reativar Assinatura"
-                    )}
-                  </Button>
-                )}
-                {(user.subscription_status === "canceled" || user.subscription_status === "past_due") && (
-                  <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
-                    {upgrading ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" text="" />
-                        Processando...
-                      </div>
-                    ) : (
-                      "Reativar Assinatura"
-                    )}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Status da Assinatura */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Status da Assinatura</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Status:</span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.subscription_status)}`}>
-                    {getStatusLabel(user.subscription_status)}
-                  </span>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{user.name}</h2>
+                    <p className="text-gray-600 dark:text-gray-300">{user.email} • Membro desde {formatDate(user.created_at)}</p>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Plano:</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white capitalize">
-                    {user.plan || "Gratuito"}
-                  </span>
-                </div>
-                {user.trial_end && user.subscription_status === "trialing" && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">Trial:</span>
-                    <span className={`text-sm font-medium ${isTrialExpired ? "text-red-600" : "text-gray-900 dark:text-white"}`}>
-                      {isTrialExpired ? "Expirado" : "Ativo"}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                    <p className="text-gray-900 dark:text-white">{user.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                    <p className="text-gray-900 dark:text-white">{user.email}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.subscription_status)}`}>
+                      {getStatusLabel(user.subscription_status)}
                     </span>
                   </div>
-                )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plano</label>
+                    <p className="text-gray-900 dark:text-white capitalize">{user.plan || "Gratuito"}</p>
+                  </div>
+                  {user.trial_end && user.subscription_status === "trialing" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Trial termina em
+                      </label>
+                      <p className={`${isTrialExpired ? "text-red-600" : "text-gray-900 dark:text-white"}`}>
+                        {formatDate(user.trial_end)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Ações */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Ações</h3>
+                <div className="space-y-3">
+                  {user.subscription_status === "trialing" && !isTrialExpired && (
+                    <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
+                      {upgrading ? (
+                        <div className="flex items-center gap-2">
+                          <LoadingSpinner size="sm" text="" />
+                          Processando...
+                        </div>
+                      ) : (
+                        "Fazer Upgrade para Plano Pago"
+                      )}
+                    </Button>
+                  )}
+                  {user.subscription_status === "active" && (
+                    <Button 
+                      onClick={handleCancelSubscription} 
+                      variant="secondary"
+                      disabled={cancelling}
+                      className="w-full"
+                    >
+                      {cancelling ? (
+                        <div className="flex items-center gap-2">
+                          <LoadingSpinner size="sm" text="" />
+                          Cancelando...
+                        </div>
+                      ) : (
+                        "Cancelar Assinatura"
+                      )}
+                    </Button>
+                  )}
+                  {isTrialExpired && (
+                    <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
+                      {upgrading ? (
+                        <div className="flex items-center gap-2">
+                          <LoadingSpinner size="sm" text="" />
+                          Processando...
+                        </div>
+                      ) : (
+                        "Reativar Assinatura"
+                      )}
+                    </Button>
+                  )}
+                  {(user.subscription_status === "canceled" || user.subscription_status === "past_due") && (
+                    <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
+                      {upgrading ? (
+                        <div className="flex items-center gap-2">
+                          <LoadingSpinner size="sm" text="" />
+                          Processando...
+                        </div>
+                      ) : (
+                        "Reativar Assinatura"
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Benefícios */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Benefícios</h3>
-              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Dashboard completo
-                </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Categorização de despesas
-                </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Relatórios detalhados
-                </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Exportação de dados
-                </li>
-                <li className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Suporte prioritário
-                </li>
-              </ul>
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Status da Assinatura */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Status da Assinatura</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Status:</span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.subscription_status)}`}>
+                      {getStatusLabel(user.subscription_status)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Plano:</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                      {user.plan || "Gratuito"}
+                    </span>
+                  </div>
+                  {user.trial_end && user.subscription_status === "trialing" && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Trial:</span>
+                      <span className={`text-sm font-medium ${isTrialExpired ? "text-red-600" : "text-gray-900 dark:text-white"}`}>
+                        {isTrialExpired ? "Expirado" : "Ativo"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Benefícios */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Benefícios</h3>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span>
+                    Dashboard completo
+                  </li>
+                  <li className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span>
+                    Categorização de despesas
+                  </li>
+                  <li className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span>
+                    Relatórios detalhados
+                  </li>
+                  <li className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span>
+                    Exportação de dados
+                  </li>
+                  <li className="flex items-center">
+                    <span className="text-green-500 mr-2">✓</span>
+                    Suporte prioritário
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Suspense>
   );
 } 
