@@ -29,21 +29,27 @@ export default function CategoryPage() {
     fetchCategories();
   }, []);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (forceRefresh = false) => {
     try {
-      console.log('Buscando categorias...');
-      const res = await fetch(apiUrl(API_ENDPOINTS.CATEGORY), {
-        headers: { Authorization: `Bearer ${token}` },
+      // Adicionar timestamp para evitar cache
+      const timestamp = new Date().getTime();
+      const url = forceRefresh 
+        ? `${apiUrl(API_ENDPOINTS.CATEGORY)}?_t=${timestamp}&_refresh=true`
+        : `${apiUrl(API_ENDPOINTS.CATEGORY)}?_t=${timestamp}`;
+        
+      const res = await fetch(url, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
       });
       
-      console.log('Resposta da busca:', { status: res.status, ok: res.ok });
-      
       const data = await res.json();
-      console.log('Dados recebidos:', data);
       
       // Verificar se os dados são um array antes de usar
       const categoriesArray = Array.isArray(data) ? data : [];
-      console.log('Categorias processadas:', categoriesArray.length);
       setCategories(categoriesArray);
     } catch (error) {
       console.error("Erro ao carregar categorias:", error);
@@ -66,8 +72,6 @@ export default function CategoryPage() {
         type: formData.type,
       };
       
-      console.log('Enviando requisição:', { url, method, body: requestBody });
-      
       const res = await fetch(url, {
         method,
         headers: {
@@ -77,16 +81,27 @@ export default function CategoryPage() {
         body: JSON.stringify(requestBody),
       });
 
-      console.log('Resposta recebida:', { status: res.status, ok: res.ok });
-      
       if (res.ok) {
         const responseData = await res.json();
-        console.log('Dados da resposta:', responseData);
+        
+        if (editingId) {
+          // Atualizar categoria existente
+          setCategories(prevCategories => 
+            prevCategories.map(cat => 
+              cat.id === editingId ? responseData : cat
+            )
+          );
+        } else {
+          // Adicionar nova categoria
+          setCategories(prevCategories => [...prevCategories, responseData]);
+        }
         
         setFormData({ name: "", type: "expense" });
         setShowForm(false);
         setEditingId(null);
-        await fetchCategories();
+        
+        // Forçar atualização completa do servidor
+        await fetchCategories(true);
       } else {
         const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
         console.error('Erro na resposta:', errorData);
@@ -120,7 +135,13 @@ export default function CategoryPage() {
       });
       
       if (res.ok) {
-        fetchCategories();
+        // Remover categoria do estado imediatamente
+        setCategories(prevCategories => 
+          prevCategories.filter(cat => cat.id !== id)
+        );
+        
+        // Forçar atualização completa do servidor
+        await fetchCategories(true);
       }
     } catch (error) {
       console.error("Erro ao excluir categoria:", error);

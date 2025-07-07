@@ -26,7 +26,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -82,7 +81,6 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      setRefreshing(true);
       const res = await fetch(`${apiUrl(API_ENDPOINTS.FINANCE.DASHBOARD)}?month=${selectedMonth}&year=${selectedYear}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -102,7 +100,6 @@ export default function Dashboard() {
       console.error("Erro ao carregar dados:", error);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -361,26 +358,9 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-            <Button onClick={() => setShowExportModal(true)} className="w-full sm:w-auto">
-              📊 Exportar para Excel
-            </Button>
-            <Button 
-              onClick={fetchData} 
-              disabled={refreshing}
-              variant="secondary"
-              className="w-full sm:w-auto"
-            >
-              {refreshing ? (
-                <div className="flex items-center gap-2">
-                  <LoadingSpinner size="sm" text="" />
-                  Atualizando...
-                </div>
-              ) : (
-                '🔄 Atualizar'
-              )}
-            </Button>
-          </div>
+          <Button onClick={() => setShowExportModal(true)} className="w-full sm:w-auto">
+            📊 Exportar para Excel
+          </Button>
         </div>
 
         {/* Filtros de Mês e Ano */}
