@@ -19,8 +19,43 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gestão de Gastos",
-  description: "App de gestão de finanças",
+  title: "Gestão de Gastos | Controle Financeiro",
+  description: "Gerencie suas finanças pessoais de forma simples e eficiente. Controle gastos, receitas e metas financeiras.",
+  keywords: [
+    "finanças",
+    "controle financeiro",
+    "gastos",
+    "receitas",
+    "metas",
+    "organização financeira",
+    "app de finanças",
+    "gestão de gastos"
+  ],
+  openGraph: {
+    title: "Gestão de Gastos | Controle Financeiro",
+    description: "Gerencie suas finanças pessoais de forma simples e eficiente.",
+    url: "https://gestao.jvsdev.com.br", 
+    siteName: "Gestão de Gastos",
+    images: [
+      {
+        url: "/favicon-32x32.png", 
+        width: 800,
+        height: 600,
+        alt: "Logo do app",
+      },
+    ],
+    locale: "pt_BR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Gestão de Gastos | Controle Financeiro",
+    description: "Gerencie suas finanças pessoais de forma simples e eficiente.",
+    images: ["/favicon-32x32.png"],
+  },
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
