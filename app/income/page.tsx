@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import dayjs from "dayjs";
 
 interface Income {
   id: number;
@@ -13,6 +14,11 @@ interface Income {
   category_id: number;
   category_name: string;
   created_at: string;
+  isFixed?: boolean;
+  recurrenceType?: string;
+  startDate?: string;
+  endDate?: string;
+  pending?: boolean; // Adicionado para indicar receitas pendentes
 }
 
 interface Category {
@@ -34,18 +40,32 @@ export default function IncomePage() {
     value: "",
     date: new Date().toISOString().split("T")[0],
     category_id: "",
+    isFixed: false,
+    recurrenceType: "monthly",
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: ""
   });
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  // Remover estados e funções relacionados a editPending e editPendingData
 
   useEffect(() => {
     if (!token) return;
     fetchData();
   }, [token]);
 
+  useEffect(() => {
+    if (!token) return;
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, selectedMonth, selectedYear]);
+
   const fetchData = async () => {
     try {
+      const params = `?month=${selectedMonth}&year=${selectedYear}`;
       const [incomesRes, categoriesRes] = await Promise.all([
-        fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME), {
+        fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME) + params, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(apiUrl(API_ENDPOINTS.CATEGORY), {
@@ -72,6 +92,7 @@ export default function IncomePage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('FORM DATA: ', formData)
     e.preventDefault();
     setSubmitting(true);
     try {
@@ -86,8 +107,12 @@ export default function IncomePage() {
         value: parseFloat(formData.value),
         date: formData.date,
         category_id: formData.category_id ? parseInt(formData.category_id) : null,
+        isFixed: formData.isFixed,
+        recurrenceType: formData.recurrenceType,
+        startDate: formData.startDate,
+        endDate: formData.endDate || null,
       };
-
+      console.log('REQUEST BODY:', requestBody);
       const res = await fetch(url, {
         method,
         headers: {
@@ -98,7 +123,7 @@ export default function IncomePage() {
       });
 
       if (res.ok) {
-        setFormData({ description: "", value: "", date: new Date().toISOString().split("T")[0], category_id: "" });
+        setFormData({ description: "", value: "", date: new Date().toISOString().split("T")[0], category_id: "", isFixed: false, recurrenceType: "monthly", startDate: new Date().toISOString().split("T")[0], endDate: "" });
         setShowForm(false);
         setEditingId(null);
         fetchData();
@@ -120,6 +145,10 @@ export default function IncomePage() {
       value: income.value.toString(),
       date: income.date,
       category_id: income.category_id.toString(),
+      isFixed: income.isFixed || false, 
+      recurrenceType: income.recurrenceType || "monthly",
+      startDate: income.startDate || new Date().toISOString().split("T")[0],
+      endDate: income.endDate || ""
     });
     setEditingId(income.id);
     setShowForm(true);
@@ -164,8 +193,134 @@ export default function IncomePage() {
     );
   }
 
+  // Nova função para registrar pendente diretamente
+  const handleRegisterPending = async (income: Income) => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          description: income.description,
+          value: income.value,
+          date: income.date,
+          category_id: income.category_id,
+          isFixed: false,
+          fixed_income_id: income.id // Envia o id da recorrente
+        }),
+      });
+      if (res.ok) {
+        fetchData();
+      } else {
+        const errorData = await res.json();
+        alert(`Erro ao registrar receita: ${errorData.error || 'Erro desconhecido'}`);
+      }
+    } catch (error) {
+      alert('Erro ao registrar receita. Verifique o console para mais detalhes.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Função para registrar todas as receitas pendentes
+  const handleRegisterAll = async () => {
+    const pendentes = incomes.filter(i => i.pending);
+    try {
+      await Promise.all(pendentes.map(async (income) => {
+        await fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            description: income.description,
+            value: income.value,
+            date: income.date,
+            category_id: income.category_id,
+            isFixed: false,
+          }),
+        });
+      }));
+      fetchData();
+    } catch (error) {
+      alert('Erro ao registrar todas as receitas.');
+    } finally {
+      // setRegisteringAll(false); // Removido
+    }
+  };
+
+  // UI do filtro de mês/ano (antes da tabela/lista)
+  const months = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
+  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
+
+  // Antes do return, defina o filtro de mês/ano como um componente
+  const MonthYearFilter = (
+    <div className="flex flex-wrap gap-2 items-center mb-6 justify-center">
+      <button
+        onClick={() => {
+          if (selectedMonth === 1) {
+            setSelectedMonth(12);
+            setSelectedYear(selectedYear - 1);
+          } else {
+            setSelectedMonth(selectedMonth - 1);
+          }
+        }}
+        className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+        aria-label="Mês anterior"
+      >
+        &lt;
+      </button>
+      <select
+        value={selectedMonth}
+        onChange={e => setSelectedMonth(Number(e.target.value))}
+        className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        aria-label="Selecionar mês"
+      >
+        {months.map((m, idx) => (
+          <option key={m} value={idx + 1}>{m}</option>
+        ))}
+      </select>
+      <select
+        value={selectedYear}
+        onChange={e => setSelectedYear(Number(e.target.value))}
+        className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        aria-label="Selecionar ano"
+      >
+        {years.map(y => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+      <button
+        onClick={() => {
+          if (selectedMonth === 12) {
+            setSelectedMonth(1);
+            setSelectedYear(selectedYear + 1);
+          } else {
+            setSelectedMonth(selectedMonth + 1);
+          }
+        }}
+        className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+        aria-label="Próximo mês"
+      >
+        &gt;
+      </button>
+      <span className="font-semibold text-gray-900 dark:text-white ml-2">
+        {months[selectedMonth - 1]} de {selectedYear}
+      </span>
+    </div>
+  );
+
+  // Remover todo o JSX solto do corpo do componente.
+  // No final do componente, coloque:
   return (
-    <div className="bg-gray-50 h-screen dark-gradient-bg p-4 sm:p-6">
+    <div className="bg-gray-50 min-h-screen dark-gradient-bg p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Receitas</h1>
@@ -174,9 +329,65 @@ export default function IncomePage() {
           </Button>
         </div>
 
+        {/* Filtro de mês/ano */}
+        <div className="flex flex-wrap gap-2 items-center mb-4 justify-center">
+          <button
+            onClick={() => {
+              if (selectedMonth === 1) {
+                setSelectedMonth(12);
+                setSelectedYear(selectedYear - 1);
+              } else {
+                setSelectedMonth(selectedMonth - 1);
+              }
+            }}
+            className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+            aria-label="Mês anterior"
+          >
+            &lt;
+          </button>
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(Number(e.target.value))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            aria-label="Selecionar mês"
+          >
+            {months.map((m, idx) => (
+              <option key={m} value={idx + 1}>{m}</option>
+            ))}
+          </select>
+          <select
+            value={selectedYear}
+            onChange={e => setSelectedYear(Number(e.target.value))}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            aria-label="Selecionar ano"
+          >
+            {years.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => {
+              if (selectedMonth === 12) {
+                setSelectedMonth(1);
+                setSelectedYear(selectedYear + 1);
+              } else {
+                setSelectedMonth(selectedMonth + 1);
+              }
+            }}
+            className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+            aria-label="Próximo mês"
+          >
+            &gt;
+          </button>
+          <span className="font-semibold text-gray-900 dark:text-white ml-2">
+            {months[selectedMonth - 1]} de {selectedYear}
+          </span>
+        </div>
+
+        {/* Formulário de receita */}
         {showForm && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 mb-6 sm:mb-8">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               {editingId ? "Editar Receita" : "Nova Receita"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -213,6 +424,7 @@ export default function IncomePage() {
                   value={formData.category_id}
                   onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  required
                 >
                   <option value="">Selecione uma categoria</option>
                   {categories.map((category) => (
@@ -234,8 +446,58 @@ export default function IncomePage() {
                   required
                 />
               </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button type="submit" disabled={submitting} className="flex-1 sm:flex-none">
+              <div>
+                <label className="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.isFixed}
+                    onChange={e => setFormData({ ...formData, isFixed: e.target.checked })}
+                    className="form-checkbox h-5 w-5 text-cyan-600"
+                  />
+                  <span className="ml-2 text-gray-700 dark:text-gray-300">Receita fixa</span>
+                </label>
+              </div>
+              {formData.isFixed && (
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Recorrência
+                    </label>
+                    <select
+                      value={formData.recurrenceType}
+                      onChange={e => setFormData({ ...formData, recurrenceType: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="monthly">Mensal</option>
+                      <option value="yearly">Anual</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Início da recorrência
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.startDate}
+                      onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Fim da recorrência (opcional)
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.endDate}
+                      onChange={e => setFormData({ ...formData, endDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <Button type="submit" disabled={submitting}>
                   {submitting ? (
                     <div className="flex items-center gap-2">
                       <LoadingSpinner size="sm" text="" />
@@ -249,11 +511,10 @@ export default function IncomePage() {
                   type="button" 
                   variant="secondary"
                   disabled={submitting}
-                  className="flex-1 sm:flex-none"
                   onClick={() => {
                     setShowForm(false);
                     setEditingId(null);
-                    setFormData({ description: "", value: "", date: new Date().toISOString().split("T")[0], category_id: "" });
+                    setFormData({ description: "", value: "", date: new Date().toISOString().split("T")[0], category_id: "", isFixed: false, recurrenceType: "monthly", startDate: new Date().toISOString().split("T")[0], endDate: "" });
                   }}
                 >
                   Cancelar
@@ -263,48 +524,42 @@ export default function IncomePage() {
           </div>
         )}
 
+        {/* Aviso de receitas pendentes */}
+        {incomes.some(i => i.pending) && (
+          <div className="mb-4 p-3 rounded bg-yellow-100 dark:bg-yellow-900 border-l-4 border-yellow-500 text-yellow-800 dark:text-yellow-200 font-semibold">
+            Existem receitas fixas pendentes para este mês. Utilize o botão "Registrar" ao lado de cada uma na tabela abaixo.
+          </div>
+        )}
+
+        {/* Tabela de receitas */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Lista de Receitas</h3>
           </div>
-          
-          {/* Desktop Table */}
-          <div className="hidden md:block">
+          <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Descrição
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Valor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Categoria
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Data
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Ações
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Descrição</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Valor</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Categoria</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Data</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {incomes.map((income) => (
-                  <tr key={income.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                  <tr key={income.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${income.pending ? 'bg-yellow-50 dark:bg-yellow-900' : ''}`}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                       {income.description}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {formatCurrency(income.value)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200">
-                        {income.category_name || 'N/A'}
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {income.category_name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {formatDate(income.date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -330,6 +585,15 @@ export default function IncomePage() {
                             'Excluir'
                           )}
                         </button>
+                        {income.pending && (
+                          <button
+                            onClick={() => handleRegisterPending(income)}
+                            disabled={submitting}
+                            className="text-green-700 hover:text-green-900 font-semibold border border-green-600 rounded px-2 py-1 bg-green-50 hover:bg-green-100"
+                          >
+                            Registrar
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -337,63 +601,8 @@ export default function IncomePage() {
               </tbody>
             </table>
           </div>
-
-          {/* Mobile Cards */}
-          <div className="md:hidden">
-            {incomes.map((income) => (
-              <div key={income.id} className="p-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-medium text-gray-900 dark:text-white text-sm">
-                    {income.description}
-                  </h4>
-                  <span className="text-sm font-medium text-green-600">
-                    {formatCurrency(income.value)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200">
-                      {income.category_name || 'N/A'}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatDate(income.date)}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(income)}
-                      disabled={deleting === income.id}
-                      className="text-xs text-cyan-600 hover:text-cyan-900 disabled:opacity-50 px-2 py-1 rounded"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(income.id)}
-                      disabled={deleting === income.id}
-                      className="text-xs text-red-600 hover:text-red-900 disabled:opacity-50 px-2 py-1 rounded"
-                    >
-                      {deleting === income.id ? (
-                        <div className="flex items-center gap-1">
-                          <LoadingSpinner size="sm" text="" />
-                          Excluindo...
-                        </div>
-                      ) : (
-                        'Excluir'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {incomes.length === 0 && (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              Nenhuma receita encontrada
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
-} 
+}
