@@ -32,8 +32,12 @@ export default function ExpensePage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [monthLoading, setMonthLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
+  // Trocar registeringPending para booleano
+  const [registeringPending, setRegisteringPending] = useState(false);
   const [showForm, setShowForm] = useState(false);
   // Atualizar formData para incluir campos de despesa fixa
   const [formData, setFormData] = useState({
@@ -58,6 +62,7 @@ export default function ExpensePage() {
 
   useEffect(() => {
     if (!token) return;
+    setMonthLoading(true);
     fetchData();
   }, [token, selectedMonth, selectedYear]);
 
@@ -88,6 +93,7 @@ export default function ExpensePage() {
       console.error("Erro ao carregar dados:", error);
     } finally {
       setLoading(false);
+      setMonthLoading(false);
     }
   };
 
@@ -140,19 +146,32 @@ export default function ExpensePage() {
   };
 
   const handleEdit = (expense: Expense) => {
+    setEditing(expense.id);
+    // Função para formatar data para YYYY-MM-DD
+    const formatDateForInput = (dateString: string | undefined) => {
+      if (!dateString) return new Date().toISOString().split("T")[0];
+      try {
+        return new Date(dateString).toISOString().split("T")[0];
+      } catch (error) {
+        console.error('Erro ao formatar data:', dateString, error);
+        return new Date().toISOString().split("T")[0];
+      }
+    };
+
     // Atualizar handleEdit para preencher os campos de despesa fixa ao editar
     setFormData({
       description: expense.description,
       value: expense.value.toString(),
-      date: expense.date,
+      date: formatDateForInput(expense.date),
       category_id: expense.category_id.toString(),
       isFixed: expense.isFixed || false,
       recurrenceType: expense.recurrenceType || "monthly",
-      startDate: expense.startDate || new Date().toISOString().split("T")[0],
-      endDate: expense.endDate || ""
+      startDate: formatDateForInput(expense.startDate),
+      endDate: formatDateForInput(expense.endDate) || ""
     });
     setEditingId(expense.id);
     setShowForm(true);
+    setEditing(null);
   };
 
   const handleDelete = async (id: number) => {
@@ -179,8 +198,23 @@ export default function ExpensePage() {
 
   // Nova função para registrar pendente diretamente
   const handleRegisterPending = async (expense: Expense) => {
-    setSubmitting(true);
+    setRegisteringPending(true);
     try {
+      // Para itens pendentes, extrair o ID real da despesa fixa
+      let fixedExpenseId = null;
+      const expenseId = String(expense.id);
+      if (expenseId.startsWith('pending-')) {
+        // Formato: pending-{id}-{month}-{year}
+        const parts = expenseId.split('-');
+        if (parts.length >= 3) {
+          fixedExpenseId = parseInt(parts[1]);
+        }
+      } else if (typeof expense.id === 'number') {
+        fixedExpenseId = expense.id;
+      }
+
+
+
       const res = await fetch(apiUrl(API_ENDPOINTS.FINANCE.EXPENSE), {
         method: "POST",
         headers: {
@@ -193,7 +227,7 @@ export default function ExpensePage() {
           date: expense.date,
           category_id: expense.category_id,
           isFixed: false,
-          fixed_expense_id: expense.id // Envia o id da recorrente
+          fixed_expense_id: fixedExpenseId
         }),
       });
       if (res.ok) {
@@ -203,11 +237,17 @@ export default function ExpensePage() {
         alert(`Erro ao registrar despesa: ${errorData.error || 'Erro desconhecido'}`);
       }
     } catch (error) {
+      console.error('Erro ao registrar despesa pendente:', error);
       alert('Erro ao registrar despesa. Verifique o console para mais detalhes.');
     } finally {
-      setSubmitting(false);
+      // Pequeno delay para evitar bug visual
+      setTimeout(() => {
+        setRegisteringPending(false);
+      }, 500);
     }
   };
+
+
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -239,9 +279,19 @@ export default function ExpensePage() {
       <div className="max-w-4xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Despesas</h1>
-          <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto">
-            + Nova Despesa
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button 
+              onClick={() => window.location.href = '/despesas/fixas'} 
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              ⚙️ Despesas Fixas
+            </Button>
+
+
+            <Button onClick={() => setShowForm(true)}>
+              + Nova Despesa
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center mb-4 justify-center">
@@ -254,7 +304,8 @@ export default function ExpensePage() {
                 setSelectedMonth(selectedMonth - 1);
               }
             }}
-            className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+            disabled={monthLoading}
+            className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Mês anterior"
           >
             &lt;
@@ -262,7 +313,8 @@ export default function ExpensePage() {
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(Number(e.target.value))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            disabled={monthLoading}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Selecionar mês"
           >
             {months.map((m, idx) => (
@@ -272,7 +324,8 @@ export default function ExpensePage() {
           <select
             value={selectedYear}
             onChange={e => setSelectedYear(Number(e.target.value))}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            disabled={monthLoading}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Selecionar ano"
           >
             {years.map(y => (
@@ -288,7 +341,8 @@ export default function ExpensePage() {
                 setSelectedMonth(selectedMonth + 1);
               }
             }}
-            className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+            disabled={monthLoading}
+            className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Próximo mês"
           >
             &gt;
@@ -443,86 +497,112 @@ export default function ExpensePage() {
           </div>
         )}
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Lista de Despesas</h3>
+        {monthLoading ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Lista de Despesas</h3>
+            </div>
+            <div className="flex items-center justify-center py-12">
+              <LoadingSpinner size="lg" text="Carregando despesas..." />
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Descrição
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Valor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Categoria
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Data
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {expenses.map((expense) => (
-                  <tr key={expense.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${expense.pending ? 'bg-yellow-50 dark:bg-yellow-900' : ''}`}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                    {expense.description}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {formatCurrency(expense.value)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {expense.category_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {formatDate(expense.date)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(expense)}
-                        disabled={deleting === expense.id}
-                        className="text-cyan-600 hover:text-cyan-900 disabled:opacity-50"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDelete(expense.id)}
-                        disabled={deleting === expense.id}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                      >
-                        {deleting === expense.id ? (
-                          <div className="flex items-center gap-1">
-                            <LoadingSpinner size="sm" text="" />
-                            Excluindo...
-                          </div>
-                        ) : (
-                          'Excluir'
-                        )}
-                      </button>
-                      {expense.pending && (
-                        <button
-                          onClick={() => handleRegisterPending(expense)}
-                          disabled={submitting}
-                          className="text-green-700 hover:text-green-900 font-semibold border border-green-600 rounded px-2 py-1 bg-green-50 hover:bg-green-100"
-                        >
-                          Registrar
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                ))}
-              </tbody>
-            </table>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Lista de Despesas</h3>
+            </div>
+            <div className="relative">
+                             {registeringPending && (
+                 <div className="absolute inset-0 bg-white dark:bg-gray-800 flex items-center justify-center z-10">
+                   <LoadingSpinner size="lg" text="Registrando..." />
+                 </div>
+               )}
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Descrição
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Valor
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Categoria
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Data
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {expenses.map((expense) => (
+                    <tr key={expense.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${expense.pending ? 'bg-yellow-50 dark:bg-yellow-900' : ''}`}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      {expense.description}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {formatCurrency(expense.value)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {expense.category_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {formatDate(expense.date)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex gap-2">
+                        {expense.pending ? (
+                          <button
+                            onClick={() => handleRegisterPending(expense)}
+                            disabled={registeringPending}
+                            className="text-green-700 hover:text-green-900 font-semibold border border-green-600 rounded px-2 py-1 bg-green-50 hover:bg-green-100 disabled:opacity-50"
+                          >
+                            Registrar
+                          </button>
+                                                  ) : (
+                            <>
+                              <button
+                                onClick={() => handleEdit(expense)}
+                                disabled={registeringPending || editing === expense.id || deleting === expense.id}
+                                className="text-cyan-600 hover:text-cyan-900 disabled:opacity-50"
+                              >
+                                {editing === expense.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <LoadingSpinner size="sm" text="" />
+                                    Editando...
+                                  </div>
+                                ) : (
+                                  'Editar'
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleDelete(expense.id)}
+                                disabled={registeringPending || editing === expense.id || deleting === expense.id}
+                                className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                              >
+                                {deleting === expense.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <LoadingSpinner size="sm" text="" />
+                                    Excluindo...
+                                  </div>
+                                ) : (
+                                  'Excluir'
+                                )}
+                              </button>
+                            </>
+                          )}
+                      </div>
+                    </td>
+                  </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

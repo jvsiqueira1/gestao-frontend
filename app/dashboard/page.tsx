@@ -2,12 +2,15 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis as BarXAxis, YAxis as BarYAxis, Tooltip as BarTooltip, Legend } from "recharts";
 import { utils as XLSXUtils, writeFile as XLSXWriteFile } from 'xlsx';
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from "next/navigation";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import { hasValidAccess } from '../../lib/api';
 
 // Função para formatar valores monetários no formato brasileiro
 const formatCurrency = (value: number): string => {
@@ -18,6 +21,22 @@ const formatCurrency = (value: number): string => {
     maximumFractionDigits: 2
   }).format(value);
 };
+
+// Função utilitária para agrupar receitas/despesas por categoria
+function mergeCategoryData(incomes: any[], expenses: any[]) {
+  const catMap: Record<string, { receita: number; despesa: number; categoria: string }> = {};
+  incomes.forEach((i) => {
+    const cat = i.category_name || 'N/A';
+    if (!catMap[cat]) catMap[cat] = { receita: 0, despesa: 0, categoria: cat };
+    catMap[cat].receita += parseFloat(i.value) || 0;
+  });
+  expenses.forEach((e) => {
+    const cat = e.category_name || 'N/A';
+    if (!catMap[cat]) catMap[cat] = { receita: 0, despesa: 0, categoria: cat };
+    catMap[cat].despesa += parseFloat(e.value) || 0;
+  });
+  return Object.values(catMap);
+}
 
 export default function Dashboard() {
   const { token, user } = useAuth();
@@ -49,6 +68,10 @@ export default function Dashboard() {
   const [deleteGoalId, setDeleteGoalId] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [celebratedGoals, setCelebratedGoals] = useState<number[]>([]);
+  const [showLamina, setShowLamina] = useState(false);
+  const laminaRef = useRef<HTMLDivElement>(null);
+  const [laminaLoading, setLaminaLoading] = useState(false);
+  const [laminaData, setLaminaData] = useState<{incomes: any[], expenses: any[]}|null>(null);
 
   const queryClient = useQueryClient();
   const { data: goals = [], isLoading: goalsLoading, error: goalsError } = useQuery({
@@ -74,8 +97,11 @@ export default function Dashboard() {
   }, [selectedMonth, selectedYear, token]);
 
   useEffect(() => {
-    if (user && (user.subscription_status === "canceled" || user.subscription_status === "past_due")) {
-      router.replace("/profile");
+    // Só redireciona se o usuário não tem acesso válido
+    if (user) {
+      if (!hasValidAccess(user)) {
+        router.replace("/perfil");
+      }
     }
   }, [user, router]);
 
@@ -333,6 +359,46 @@ export default function Dashboard() {
     }
   }, [successMessage]);
 
+  const handleGerarLamina = async () => {
+    setLaminaLoading(true);
+    // Busca todas as transações do mês
+    const exportData = await fetchExportData();
+    // Filtra pelo mês/ano atual
+    const monthStr = selectedMonth.toString().padStart(2, '0');
+    const yearStr = selectedYear.toString();
+    const filteredIncomes = exportData.incomes.filter((income: any) => {
+      const d = new Date(income.date);
+      return d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear;
+    });
+    const filteredExpenses = exportData.expenses.filter((expense: any) => {
+      const d = new Date(expense.date);
+      return d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear;
+    });
+    setLaminaData({ incomes: filteredIncomes, expenses: filteredExpenses });
+    setShowLamina(true);
+    setTimeout(async () => {
+      if (laminaRef.current) {
+        const canvas = await (html2canvas as any)(laminaRef.current, { scale: 2, useCORS: true });
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: "a4" });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        let pdfWidth = pageWidth;
+        let pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        if (pdfHeight > pageHeight) {
+          pdfHeight = pageHeight;
+          pdfWidth = (canvas.width * pdfHeight) / canvas.height;
+        }
+        const x = (pageWidth - pdfWidth) / 2;
+        const y = 20;
+        pdf.addImage(imgData, "PNG", x, y, pdfWidth, pdfHeight - 40);
+        pdf.save(`lamina_financeira_${selectedMonth}_${selectedYear}.pdf`);
+      }
+      setShowLamina(false);
+      setLaminaLoading(false);
+    }, 500);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -358,8 +424,8 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          <Button onClick={() => setShowExportModal(true)} className="w-full sm:w-auto">
-            📊 Exportar para Excel
+          <Button onClick={handleGerarLamina} className="w-full sm:w-auto" disabled={laminaLoading}>
+            {laminaLoading ? "Gerando..." : "📄 Gerar Lâmina"}
           </Button>
         </div>
 
@@ -838,6 +904,109 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+      {/* Lâmina oculta para PDF */}
+      {showLamina && laminaData ? (() => {
+        // Indicadores Visuais Simples - Despesas por Categoria
+        const catMap: Record<string, number> = {};
+        laminaData.expenses.forEach((e) => {
+          const cat = e.category_name || 'N/A';
+          catMap[cat] = (catMap[cat] || 0) + parseFloat(e.value) || 0;
+        });
+        const total = Object.values(catMap).reduce((a, b) => a + b, 0) || 1;
+        const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+        const despesasPorCategoria = sorted.length === 0 ? (
+          <div style={{ color: '#aaa', fontSize: 14 }}>Sem despesas no mês</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sorted.map(([cat, val], idx) => (
+              <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 140, fontWeight: 500, color: '#444', fontSize: 15 }}>{cat}</div>
+                <div style={{ flex: 1, background: '#f1f5f9', borderRadius: 6, height: 18, position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ width: `${(val / total) * 100}%`, background: '#dc2626', height: '100%', borderRadius: 6, transition: 'width 0.3s' }} />
+                </div>
+                <div style={{ width: 90, textAlign: 'right', fontWeight: 600, color: '#dc2626', fontSize: 15 }}>{formatCurrency(val)}</div>
+              </div>
+            ))}
+          </div>
+        );
+        // Resumo do mês: tabela de despesas
+        const despesas = laminaData.expenses;
+        const totalDespesas = despesas.reduce((acc, t) => acc + parseFloat(t.value), 0);
+        const tabelaDespesas = (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15, marginBottom: 8 }}>
+            <thead>
+              <tr style={{ background: '#f1f5f9' }}>
+                <th style={{ padding: 8, border: '1px solid #e5e7eb' }}>Data</th>
+                <th style={{ padding: 8, border: '1px solid #e5e7eb' }}>Categoria</th>
+                <th style={{ padding: 8, border: '1px solid #e5e7eb' }}>Descrição</th>
+                <th style={{ padding: 8, border: '1px solid #e5e7eb' }}>Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {despesas.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: '#aaa', padding: 12 }}>Nenhuma despesa registrada no mês</td>
+                </tr>
+              ) : (
+                despesas
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .map((t: any, idx: number) => (
+                    <tr key={idx}>
+                      <td style={{ padding: 8, border: '1px solid #e5e7eb' }}>{new Date(t.date).toLocaleDateString('pt-BR')}</td>
+                      <td style={{ padding: 8, border: '1px solid #e5e7eb' }}>{t.category_name || '-'}</td>
+                      <td style={{ padding: 8, border: '1px solid #e5e7eb' }}>{t.description || '-'}</td>
+                      <td style={{ padding: 8, border: '1px solid #e5e7eb', color: '#dc2626', fontWeight: 600 }}>{formatCurrency(parseFloat(t.value))}</td>
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
+        );
+        return (
+          <div style={{ position: "fixed", left: -9999, top: 0, width: 900, background: "#f8fafc" }}>
+            <div ref={laminaRef} style={{ background: "white", color: "#222", padding: 32, width: 900, fontFamily: 'Arial, sans-serif', borderRadius: 12, boxShadow: '0 2px 8px #0001' }}>
+              {/* Cabeçalho */}
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
+                <img src="/apple-touch-icon.png" alt="Logo Gestão de Gastos" style={{ width: 48, height: 48, marginRight: 20, borderRadius: 12, boxShadow: '0 1px 4px #0002' }} />
+                <div>
+                  <div style={{ fontSize: 28, fontWeight: 700 }}>Lâmina Financeira</div>
+                  <div style={{ fontSize: 16, color: '#666' }}>{getMonthName(selectedMonth)}/{selectedYear} {user?.name ? `- ${user.name}` : ''}</div>
+                </div>
+                <div style={{ flex: 1 }} />
+                <div style={{ fontSize: 12, color: '#888', textAlign: 'right' }}>Gerado em {new Date().toLocaleString('pt-BR')}</div>
+              </div>
+              {/* Cards de visão geral */}
+              <div style={{ display: 'flex', gap: 24, marginBottom: 32 }}>
+                <div style={{ flex: 1, background: '#e0f7fa', borderRadius: 8, padding: 20, textAlign: 'center', boxShadow: '0 1px 4px #0001' }}>
+                  <div style={{ fontSize: 14, color: '#0891b2', marginBottom: 4 }}>Receitas</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#0891b2' }}>{formatCurrency(data.monthlyIncome || 0)}</div>
+                </div>
+                <div style={{ flex: 1, background: '#ffebee', borderRadius: 8, padding: 20, textAlign: 'center', boxShadow: '0 1px 4px #0001' }}>
+                  <div style={{ fontSize: 14, color: '#dc2626', marginBottom: 4 }}>Despesas</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#dc2626' }}>{formatCurrency(data.monthlyExpense || 0)}</div>
+                </div>
+                <div style={{ flex: 1, background: '#e8f5e9', borderRadius: 8, padding: 20, textAlign: 'center', boxShadow: '0 1px 4px #0001' }}>
+                  <div style={{ fontSize: 14, color: '#16a34a', marginBottom: 4 }}>Saldo</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#16a34a' }}>{formatCurrency((data.monthlyIncome || 0) - (data.monthlyExpense || 0))}</div>
+                </div>
+              </div>
+              {/* Indicadores Visuais Simples - Despesas por Categoria */}
+              <div style={{ marginBottom: 32 }}>
+                <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 12 }}>Despesas por Categoria</div>
+                {despesasPorCategoria}
+              </div>
+              {/* Tabela de Despesas do Mês */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Despesas do Mês</div>
+                {tabelaDespesas}
+              </div>
+              <div style={{ textAlign: 'right', color: '#aaa', fontSize: 12, marginTop: 16 }}>
+                Relatório gerado por {user?.name || 'Usuário'} em {new Date().toLocaleString('pt-BR')}
+              </div>
+            </div>
+          </div>
+        );
+      })() : null}
     </div>
   );
 } 

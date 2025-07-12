@@ -35,7 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${t}` },
       });
       setUser(res.data.user);
-    } catch {
+    } catch (error) {
+      console.error('Erro ao buscar usuário:', error);
       setUser(null);
       setToken(null);
       localStorage.removeItem("token");

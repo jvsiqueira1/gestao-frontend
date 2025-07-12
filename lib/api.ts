@@ -2,7 +2,23 @@
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 // Função para construir URLs da API
-export const apiUrl = (endpoint: string) => `${BACKEND_URL}${endpoint}`;
+export const apiUrl = (path: string) => {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  return `${baseUrl}${path}`;
+};
+
+// Função utilitária para verificar se o usuário tem acesso válido
+export const hasValidAccess = (user: any): boolean => {
+  if (!user) return false;
+  
+  return (
+    user.subscription_status === 'active' ||
+    user.subscription_status === 'trialing' ||
+    (user.subscription_status === 'canceled' && user.premium_until && new Date(user.premium_until) > new Date()) ||
+    user.plan === 'TRIAL' ||
+    (user.trial_end && new Date(user.trial_end) > new Date())
+  );
+};
 
 // Endpoints da API
 export const API_ENDPOINTS = {
@@ -42,6 +58,8 @@ export const authenticatedRequest = async (
   token?: string
 ) => {
   const url = apiUrl(endpoint);
+
+  
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
@@ -49,17 +67,21 @@ export const authenticatedRequest = async (
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
-  }
+      }
 
   const response = await fetch(url, {
     ...options,
     headers,
   });
 
+  
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Erro na requisição' }));
+    console.error('❌ Erro na resposta:', error);
     throw new Error(error.error || `Erro ${response.status}`);
   }
 
-  return response.json();
+      const data = await response.json();
+  return data;
 }; 

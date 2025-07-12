@@ -5,6 +5,7 @@ import { apiUrl, API_ENDPOINTS } from "../../lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import AssinaturaAnualButton from "../../components/AssinaturaAnualButton";
 
 export default function ProfileClient() {
   const { user, token, refreshUser } = useAuth();
@@ -20,7 +21,7 @@ export default function ProfileClient() {
     // Só execute se user existir, status for 'active' e success=true
     if (success === "true" && user && user.subscription_status === "active") {
       localStorage.setItem("stripeSuccessMsg", "Assinatura reativada com sucesso!");
-      router.replace("/profile");
+      router.replace("/perfil");
     }
   }, [searchParams, user, router]);
 
@@ -34,26 +35,48 @@ export default function ProfileClient() {
   }, []);
 
   const handleCancelSubscription = async () => {
-    if (!confirm("Tem certeza que deseja cancelar sua assinatura?")) return;
     setCancelling(true);
     try {
-      const res = await fetch(apiUrl(API_ENDPOINTS.STRIPE.CANCEL_SUBSCRIPTION), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      let res;
+      
+      if (user.plan === 'anual') {
+        // Cancelamento de plano anual (pagamento único)
+        res = await fetch("http://localhost:4000/api/stripe/cancel-annual", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } else {
+        // Cancelamento de assinatura mensal (recorrente)
+        res = await fetch("http://localhost:4000/api/stripe/cancel-subscription", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
 
       if (res.ok) {
+        const data = await res.json();
+        if (data.premium_until) {
+          const expirationDate = new Date(data.premium_until).toLocaleDateString("pt-BR");
+          const planType = user.plan === 'anual' ? 'anual' : 'mensal';
+          setSuccessMessage(`${data.message || `Assinatura ${planType} cancelada com sucesso!`} Você ainda tem acesso premium até ${expirationDate}.`);
+        } else {
+          setSuccessMessage("Assinatura cancelada com sucesso!");
+        }
+        // Recarregar dados do usuário
         await refreshUser();
-        setSuccessMessage("Assinatura cancelada com sucesso.");
       } else {
-        alert("Erro ao cancelar assinatura. Tente novamente.");
+        const errorData = await res.json();
+        alert(errorData.error || "Erro ao cancelar assinatura");
       }
     } catch (error) {
       console.error("Erro ao cancelar assinatura:", error);
-      alert("Erro ao cancelar assinatura. Tente novamente.");
+      alert("Erro ao cancelar assinatura");
     } finally {
       setCancelling(false);
     }
@@ -145,12 +168,29 @@ export default function ProfileClient() {
     <div className="bg-gray-50 dark-gradient-bg p-6">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Perfil</h1>
-        {successMessage && (
+        {successMessage && user.subscription_status === "active" && (
           <div className="mb-4 p-3 rounded bg-green-100 text-green-800 text-center font-medium">
             {successMessage}
           </div>
         )}
-        {["canceled", "past_due"].includes(user.subscription_status) && (
+        {user.subscription_status === "past_due" && (
+          <div className="mb-4 p-3 rounded bg-yellow-100 text-yellow-800 text-center font-medium">
+            Para acessar todas as funcionalidades do sistema, é necessário regularizar sua assinatura.
+          </div>
+        )}
+        {user.subscription_status === "canceled" && user.plan === "anual" && user.premium_until && (
+          <div className="mb-4 p-3 rounded bg-blue-100 text-blue-800 text-center font-medium">
+            Sua assinatura anual foi cancelada, mas você ainda tem acesso premium até <strong>{formatDate(user.premium_until)}</strong>. 
+            Após essa data, será necessário renovar para continuar usando todas as funcionalidades.
+          </div>
+        )}
+        {user.subscription_status === "canceled" && user.plan === "mensal" && user.premium_until && (
+          <div className="mb-4 p-3 rounded bg-blue-100 text-blue-800 text-center font-medium">
+            Sua assinatura mensal foi cancelada, mas você ainda tem acesso premium até <strong>{formatDate(user.premium_until)}</strong>. 
+            Após essa data, será necessário renovar para continuar usando todas as funcionalidades.
+          </div>
+        )}
+        {user.subscription_status === "canceled" && user.plan !== "anual" && user.plan !== "mensal" && (
           <div className="mb-4 p-3 rounded bg-yellow-100 text-yellow-800 text-center font-medium">
             Para acessar todas as funcionalidades do sistema, é necessário regularizar sua assinatura.
           </div>
@@ -200,6 +240,26 @@ export default function ProfileClient() {
                     </p>
                   </div>
                 )}
+                {user.premium_until && user.subscription_status === "canceled" && user.plan === "anual" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Acesso premium até
+                    </label>
+                    <p className="text-blue-600 dark:text-blue-400 font-medium">
+                      {formatDate(user.premium_until)}
+                    </p>
+                  </div>
+                )}
+                {user.premium_until && user.subscription_status === "canceled" && user.plan === "mensal" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Acesso premium até
+                    </label>
+                    <p className="text-blue-600 dark:text-blue-400 font-medium">
+                      {formatDate(user.premium_until)}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -207,59 +267,66 @@ export default function ProfileClient() {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Ações</h3>
               <div className="space-y-3">
-                {user.subscription_status === "trialing" && !isTrialExpired && (
-                  <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
-                    {upgrading ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" text="" />
-                        Processando...
+                <div className="max-w-3xl mx-auto mt-8">
+                  {user.subscription_status !== "active" && (
+                    <h2 className="text-2xl font-bold text-center mb-6">Escolha seu plano</h2>
+                  )}
+                  {user.subscription_status !== "active" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Plano Mensal */}
+                      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex flex-col items-center border-2 border-cyan-500 h-full">
+                        <h3 className="text-xl font-semibold mb-2">Mensal</h3>
+                        <div className="text-3xl font-bold text-cyan-600 mb-2">R$19,90</div>
+                        <div className="text-gray-500 mb-4">por mês</div>
+                        <ul className="mb-6 text-sm text-gray-700 dark:text-gray-200 space-y-1 flex-grow">
+                          <li>✔️ Acesso total ao sistema</li>
+                          <li>✔️ Suporte prioritário</li>
+                          <li>✔️ Cancelamento a qualquer momento</li>
+                        </ul>
+                        <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
+                          {upgrading ? "Redirecionando..." : "Assinar Mensal"}
+                        </Button>
                       </div>
-                    ) : (
-                      "Fazer Upgrade para Plano Pago"
-                    )}
-                  </Button>
-                )}
-                {user.subscription_status === "active" && (
-                  <Button 
-                    onClick={handleCancelSubscription} 
-                    variant="secondary"
-                    disabled={cancelling}
-                    className="w-full"
-                  >
-                    {cancelling ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" text="" />
-                        Cancelando...
+                      {/* Plano Anual */}
+                      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex flex-col items-center border-4 border-yellow-500 h-full">
+                        <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
+                          Anual
+                          <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded">Economize 37%</span>
+                        </h3>
+                        <div className="text-3xl font-bold text-yellow-600 mb-2">R$150,00</div>
+                        <div className="text-gray-500 mb-1">por ano</div>
+                        <ul className="mb-6 text-sm text-gray-700 dark:text-gray-200 space-y-1 flex-grow">
+                          <li>✔️ Todos os benefícios do mensal</li>
+                          <li>✔️ Economia de <b>R$89,80</b> ao ano</li>
+                          <li>✔️ Pagamento único, sem surpresas</li>
+                        </ul>
+                        <AssinaturaAnualButton />
                       </div>
-                    ) : (
-                      "Cancelar Assinatura"
-                    )}
-                  </Button>
-                )}
-                {isTrialExpired && (
-                  <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
-                    {upgrading ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" text="" />
-                        Processando...
-                      </div>
-                    ) : (
-                      "Reativar Assinatura"
-                    )}
-                  </Button>
-                )}
-                {(user.subscription_status === "canceled" || user.subscription_status === "past_due") && (
-                  <Button onClick={handleUpgrade} disabled={upgrading} className="w-full">
-                    {upgrading ? (
-                      <div className="flex items-center gap-2">
-                        <LoadingSpinner size="sm" text="" />
-                        Processando...
-                      </div>
-                    ) : (
-                      "Reativar Assinatura"
-                    )}
-                  </Button>
-                )}
+                    </div>
+                  ) : (
+                    <div className="mt-8 text-center">
+                      <div className="text-green-700 font-semibold mb-2">Sua assinatura está ativa!</div>
+                      <div className="text-gray-600 text-sm mb-4">Plano: {user.plan || 'Premium'}</div>
+                      {user.premium_until && (
+                        <div className="text-gray-600 text-sm mb-4">
+                          Acesso premium até: {formatDate(user.premium_until)}
+                        </div>
+                      )}
+                      <Button 
+                        onClick={() => {
+                          if (confirm("Tem certeza que deseja cancelar sua assinatura?")) {
+                            handleCancelSubscription();
+                          }
+                        }} 
+                        disabled={cancelling} 
+                        variant="secondary"
+                        className="mt-4"
+                      >
+                        {cancelling ? "Cancelando..." : "Cancelar Assinatura"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

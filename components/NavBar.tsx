@@ -5,13 +5,14 @@ import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
 import Button from "./Button";
 import ThemeToggle from "./ThemeToggle";
+import { hasValidAccess } from "../lib/api";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/income", label: "Rendas", icon: "💰" },
-  { href: "/expense", label: "Despesas", icon: "💸" },
-  { href: "/category", label: "Categorias", icon: "🏷️" },
-  { href: "/profile", label: "Perfil", icon: "👤" },
+  { href: "/rendas", label: "Rendas", icon: "💰" },
+  { href: "/despesas", label: "Despesas", icon: "💸" },
+      { href: "/categorias", label: "Categorias", icon: "🏷️" },
+    { href: "/perfil", label: "Perfil", icon: "👤" },
 ];
 
 export default function NavBar() {
@@ -19,7 +20,8 @@ export default function NavBar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  const assinaturaBloqueada = user && (user.subscription_status === "canceled" || user.subscription_status === "past_due");
+  // Usar a função utilitária para verificar acesso
+  const hasAccess = hasValidAccess(user);
   
   // Não mostrar a navbar na página inicial se o usuário estiver logado
   if (!user || pathname === '/') return null;
@@ -41,8 +43,8 @@ export default function NavBar() {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-1">
             {navItems.map(item => {
-              const isProfile = item.href === "/profile";
-              const isDisabled = assinaturaBloqueada && !isProfile;
+              const isProfile = item.href === "/perfil";
+              const isDisabled = !hasAccess && !isProfile;
               return (
                 <span key={item.href} title={isDisabled ? "Regularize sua assinatura para acessar" : undefined}>
                   <Link
@@ -100,8 +102,8 @@ export default function NavBar() {
           <div className="md:hidden border-t border-neutral-dark/10 dark:border-gray-700 bg-white dark:bg-gray-900">
             <div className="py-4 space-y-2">
               {navItems.map(item => {
-                const isProfile = item.href === "/profile";
-                const isDisabled = assinaturaBloqueada && !isProfile;
+                const isProfile = item.href === "/perfil";
+                const isDisabled = !hasAccess && !isProfile;
                 return (
                   <span key={item.href} title={isDisabled ? "Regularize sua assinatura para acessar" : undefined}>
                     <Link
