@@ -22,35 +22,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    console.log('🔄 AuthContext initializing...');
     const t = localStorage.getItem("token");
-    console.log('📦 Token from localStorage:', t ? `${t.substring(0, 20)}...` : 'null');
     if (t) {
       setToken(t);
       fetchUser(t);
-    } else {
-      console.log('❌ No token found in localStorage');
     }
   }, []);
 
   const fetchUser = async (t: string) => {
     try {
-      console.log('🔍 Fetching user with token:', t ? `${t.substring(0, 20)}...` : 'null');
-      console.log('🌐 API URL:', apiUrl(API_ENDPOINTS.AUTH.ME));
-      
       const res = await axios.get(apiUrl(API_ENDPOINTS.AUTH.ME), {
         headers: { Authorization: `Bearer ${t}` },
       });
-      console.log('✅ User fetched successfully:', res.data.user);
       setUser(res.data.user);
     } catch (error: any) {
-      console.error('❌ Erro ao buscar usuário:', error);
-      console.error('🔍 Error details:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        headers: error.response?.headers
-      });
       setUser(null);
       setToken(null);
       localStorage.removeItem("token");
@@ -58,9 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    console.log('🔐 Attempting login for:', email);
     const res = await axios.post(apiUrl(API_ENDPOINTS.AUTH.LOGIN), { email, password });
-    console.log('✅ Login successful, token received:', res.data.token ? `${res.data.token.substring(0, 20)}...` : 'null');
     setToken(res.data.token);
     localStorage.setItem("token", res.data.token);
     await fetchUser(res.data.token);
