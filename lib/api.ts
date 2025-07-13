@@ -1,9 +1,7 @@
 // Configuração da API
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-
 // Função para construir URLs da API
 export const apiUrl = (path: string) => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
   return `${baseUrl}${path}`;
 };
 

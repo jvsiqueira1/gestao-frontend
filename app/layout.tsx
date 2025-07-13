@@ -7,6 +7,8 @@ import NavBar from "../components/NavBar";
 import Footer from "../components/Footer";
 import ChatbotWrapper from "../components/ChatbotWrapper";
 import ReactQueryProvider from "../components/ReactQueryProvider";
+import DebugAuth from "../components/DebugAuth";
+import BackendTest from "../components/BackendTest";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,6 +79,8 @@ export default function RootLayout({
                 <Footer />
               </div>
               <ChatbotWrapper />
+              <DebugAuth />
+              <BackendTest />
             </AuthProvider>
           </ThemeProvider>
         </ReactQueryProvider>
