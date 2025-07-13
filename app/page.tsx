@@ -99,7 +99,7 @@ const Home = () => {
   return (
     <div 
       ref={containerRef}
-      className="min-h-screen w-full overflow-x-hidden flex flex-col items-center bg-gradient-to-br from-gray-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900"
+      className="min-h-screen w-full overflow-x-hidden flex flex-col items-center bg-custom-light dark:bg-custom-dark"
     >
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

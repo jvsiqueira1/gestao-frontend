@@ -181,14 +181,14 @@ export default function FixedIncomesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-custom-light dark:bg-custom-dark flex items-center justify-center">
         <LoadingSpinner size="lg" text="Carregando rendas fixas..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-custom-light dark:bg-custom-dark p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">

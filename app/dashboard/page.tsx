@@ -401,7 +401,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-custom-light dark:bg-custom-dark flex items-center justify-center">
         <LoadingSpinner size="lg" text="Carregando dashboard..." />
       </div>
     );
@@ -409,7 +409,7 @@ export default function Dashboard() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-custom-light dark:bg-custom-dark flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600">Erro ao carregar dados do dashboard</p>
         </div>
@@ -420,7 +420,7 @@ export default function Dashboard() {
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
+    <div className="bg-custom-light dark:bg-custom-dark p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>

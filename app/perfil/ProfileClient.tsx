@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import AssinaturaAnualButton from "../../components/AssinaturaAnualButton";
+import ColorThemeSelector from "../../components/ColorThemeSelector";
 
 export default function ProfileClient() {
   const { user, token, refreshUser } = useAuth();
@@ -156,7 +157,7 @@ export default function ProfileClient() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-custom-light dark:bg-custom-dark flex items-center justify-center">
         <LoadingSpinner size="lg" text="Carregando perfil..." />
       </div>
     );
@@ -165,7 +166,7 @@ export default function ProfileClient() {
   const isTrialExpired = user.subscription_status === "trialing" && new Date(user.trial_end) < new Date();
 
   return (
-    <div className="bg-gray-50 dark-gradient-bg p-6">
+    <div className="bg-custom-light dark:bg-custom-dark p-6">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Perfil</h1>
         {successMessage && user.subscription_status === "active" && (
@@ -261,6 +262,11 @@ export default function ProfileClient() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Personalização de Cores */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <ColorThemeSelector />
             </div>
 
             {/* Ações */}

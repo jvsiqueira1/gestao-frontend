@@ -162,7 +162,7 @@ export default function CategoryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-custom-light dark:bg-custom-dark flex items-center justify-center">
         <LoadingSpinner size="lg" text="Carregando categorias..." />
       </div>
     );
@@ -172,7 +172,7 @@ export default function CategoryPage() {
   const incomeCategories = categories.filter(cat => cat.type === 'income');
 
   return (
-    <div className="bg-gray-50 dark-gradient-bg p-6">
+    <div className="bg-custom-light dark:bg-custom-dark p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Categorias</h1>

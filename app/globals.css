@@ -5,11 +5,16 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --color-primary: #00bcd4;
+  --color-accent: #ffeb3b;
+  --color-background-light: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0f9ff 100%);
+  --color-background-dark: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
 }
 
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
+  color-scheme: dark;
 }
 
 html,
@@ -37,10 +42,77 @@ a {
   text-decoration: none;
 }
 
-.dark {
-  color-scheme: dark;
+.dark .dark-gradient-bg {
+  background: var(--color-background-dark);
 }
 
-.dark .dark-gradient-bg {
-  background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #111827 100%);
+/* Melhorar a aplicação dos backgrounds personalizados */
+.bg-custom-light {
+  background: var(--color-background-light) !important;
+}
+
+.bg-custom-dark {
+  background: var(--color-background-dark) !important;
+}
+
+/* Garantir que os backgrounds sejam aplicados corretamente no dark mode */
+.dark .bg-custom-light {
+  background: var(--color-background-dark) !important;
+}
+
+.dark .bg-custom-dark {
+  background: var(--color-background-dark) !important;
+}
+
+/* Aplicar backgrounds personalizados baseado no tema atual */
+html.dark .bg-custom-light,
+html.dark .bg-custom-dark {
+  background: var(--color-background-dark) !important;
+}
+
+html:not(.dark) .bg-custom-light {
+  background: var(--color-background-light) !important;
+}
+
+
+
+/* Classes utilitárias para usar as cores personalizadas */
+.bg-primary-custom {
+  background-color: var(--color-primary);
+}
+
+.bg-accent-custom {
+  background-color: var(--color-accent);
+}
+
+.text-primary-custom {
+  color: var(--color-primary);
+}
+
+.text-accent-custom {
+  color: var(--color-accent);
+}
+
+.border-primary-custom {
+  border-color: var(--color-primary);
+}
+
+.border-accent-custom {
+  border-color: var(--color-accent);
+}
+
+.hover\:bg-primary-custom:hover {
+  background-color: var(--color-primary);
+}
+
+.hover\:bg-accent-custom:hover {
+  background-color: var(--color-accent);
+}
+
+.hover\:text-primary-custom:hover {
+  color: var(--color-primary);
+}
+
+.hover\:text-accent-custom:hover {
+  color: var(--color-accent);
 }

@@ -31,6 +31,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
     localStorage.setItem('theme', theme);
+    
+    // Forçar reaplicação das cores personalizadas
+    const colorTheme = localStorage.getItem('colorTheme');
+    if (colorTheme) {
+      const event = new CustomEvent('themeChanged', { detail: { theme } });
+      window.dispatchEvent(event);
+    }
   }, [theme]);
 
   const toggleTheme = () => {

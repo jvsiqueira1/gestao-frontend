@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
+import { ColorThemeProvider } from "../context/ColorThemeContext";
 import NavBar from "../components/NavBar";
 import Footer from "../components/Footer";
 import ChatbotWrapper from "../components/ChatbotWrapper";
@@ -68,16 +69,18 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <ReactQueryProvider>
           <ThemeProvider>
-            <AuthProvider>
-              <div className="min-h-screen flex flex-col">
-                <NavBar />
-                <main className="flex-1">
-                  {children}
-                </main>
-                <Footer />
-              </div>
-              <ChatbotWrapper />
-            </AuthProvider>
+            <ColorThemeProvider>
+              <AuthProvider>
+                <div className="min-h-screen flex flex-col">
+                  <NavBar />
+                  <main className="flex-1">
+                    {children}
+                  </main>
+                  <Footer />
+                </div>
+                <ChatbotWrapper />
+              </AuthProvider>
+            </ColorThemeProvider>
           </ThemeProvider>
         </ReactQueryProvider>
       </body>
