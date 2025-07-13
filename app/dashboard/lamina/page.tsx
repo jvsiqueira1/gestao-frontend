@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl, API_ENDPOINTS } from "../../../lib/api";
 import LoadingSpinner from "../../../components/LoadingSpinner";
@@ -14,7 +14,8 @@ const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
-export default function LaminaPage() {
+// Componente que usa useSearchParams
+function LaminaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const month = parseInt(searchParams.get('month') || `${new Date().getMonth() + 1}`);
@@ -103,5 +104,23 @@ export default function LaminaPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Componente de fallback para Suspense
+function LaminaFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <LoadingSpinner size="lg" text="Carregando..." />
+    </div>
+  );
+}
+
+// Componente principal que envolve tudo em Suspense
+export default function LaminaPage() {
+  return (
+    <Suspense fallback={<LaminaFallback />}>
+      <LaminaContent />
+    </Suspense>
   );
 } 
