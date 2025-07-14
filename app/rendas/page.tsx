@@ -5,6 +5,11 @@ import { apiUrl, API_ENDPOINTS } from "../../lib/api";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import dayjs from "dayjs";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { format as formatDateFns } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Settings } from 'lucide-react';
 
 interface Income {
   id: number;
@@ -201,6 +206,12 @@ export default function IncomePage() {
     return new Date(dateString).toLocaleDateString("pt-BR");
   };
 
+  function parseLocalDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -338,9 +349,15 @@ export default function IncomePage() {
               onClick={() => window.location.href = '/rendas/fixas'} 
               className="bg-green-600 hover:bg-green-700"
             >
-              ⚙️ Rendas Fixas
+              <Settings className="inline w-4 h-4 mr-1 align-text-bottom" /> Rendas Fixas
             </Button>
-            <Button onClick={() => setShowForm(true)}>
+            <Button onClick={() => {
+              setFormData(form => ({
+                ...form,
+                startDate: form.date
+              }));
+              setShowForm(true);
+            }}>
               + Nova Receita
             </Button>
           </div>
@@ -459,20 +476,48 @@ export default function IncomePage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Data
                 </label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  required
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-left focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
+                    >
+                      {formData.date ? formatDateFns(parseLocalDate(formData.date) || new Date(), "dd/MM/yyyy", { locale: ptBR }) : "Selecione uma data"}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={parseLocalDate(formData.date) || undefined}
+                      onSelect={date => {
+                        if (date) {
+                          const localDate = formatDateFns(date, "yyyy-MM-dd");
+                          setFormData(form => ({
+                            ...form,
+                            date: localDate,
+                            startDate: form.isFixed ? localDate : form.startDate
+                          }));
+                        }
+                      }}
+                      locale={ptBR}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label className="inline-flex items-center">
                   <input
                     type="checkbox"
                     checked={formData.isFixed}
-                    onChange={e => setFormData({ ...formData, isFixed: e.target.checked })}
+                    onChange={e => {
+                      const checked = e.target.checked;
+                      setFormData(form => ({
+                        ...form,
+                        isFixed: checked,
+                        startDate: checked ? form.date : form.startDate
+                      }));
+                    }}
                     className="form-checkbox h-5 w-5 text-cyan-600"
                   />
                   <span className="ml-2 text-gray-700 dark:text-gray-300">Receita fixa</span>
@@ -497,23 +542,65 @@ export default function IncomePage() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Início da recorrência
                     </label>
-                    <input
-                      type="date"
-                      value={formData.startDate}
-                      onChange={e => setFormData({ ...formData, startDate: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-left focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
+                        >
+                          {formData.startDate ? formatDateFns(parseLocalDate(formData.startDate) || new Date(), "dd/MM/yyyy", { locale: ptBR }) : "Selecione uma data"}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={parseLocalDate(formData.startDate) || undefined}
+                          onSelect={date => {
+                            if (date) {
+                              const localDate = formatDateFns(date, "yyyy-MM-dd");
+                              setFormData(form => ({
+                                ...form,
+                                startDate: localDate
+                              }));
+                            }
+                          }}
+                          locale={ptBR}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Fim da recorrência (opcional)
                     </label>
-                    <input
-                      type="date"
-                      value={formData.endDate}
-                      onChange={e => setFormData({ ...formData, endDate: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-left focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
+                        >
+                          {formData.endDate ? formatDateFns(parseLocalDate(formData.endDate) || new Date(), "dd/MM/yyyy", { locale: ptBR }) : "Selecione uma data"}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={parseLocalDate(formData.endDate) || undefined}
+                          onSelect={date => {
+                            if (date) {
+                              const localDate = formatDateFns(date, "yyyy-MM-dd");
+                              setFormData(form => ({
+                                ...form,
+                                endDate: localDate
+                              }));
+                            }
+                          }}
+                          locale={ptBR}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               )}

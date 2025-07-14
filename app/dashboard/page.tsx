@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { hasValidAccess } from '../../lib/api';
+import { FileText, Calendar, BarChart3 } from 'lucide-react';
 
 // Função para formatar valores monetários no formato brasileiro
 const formatCurrency = (value: number): string => {
@@ -425,7 +426,7 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
           <Button onClick={handleGerarLamina} className="w-full sm:w-auto" disabled={laminaLoading}>
-            {laminaLoading ? "Gerando..." : "📄 Gerar Lâmina"}
+            {laminaLoading ? "Gerando..." : <><FileText className="inline w-4 h-4 mr-1 align-text-bottom" /> Gerar Lâmina</>}
           </Button>
         </div>
 
@@ -442,7 +443,7 @@ export default function Dashboard() {
                 }}
                 className="text-xs px-3 py-1 h-8 w-full sm:w-auto"
               >
-                📅 Voltar ao Atual
+                <Calendar className="inline w-4 h-4 mr-1 align-text-bottom" /> Voltar ao Atual
               </Button>
             )}
           </div>
@@ -496,7 +497,7 @@ export default function Dashboard() {
             )}
             {(selectedMonth !== new Date().getMonth() + 1 || selectedYear !== new Date().getFullYear()) && (
               <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
-                📊 Visualizando dados históricos
+                <BarChart3 className="inline w-4 h-4 mr-1 align-text-bottom" /> Visualizando dados históricos
               </p>
             )}
           </div>
@@ -557,7 +558,7 @@ export default function Dashboard() {
             {(!data.categoryData || data.categoryData.length === 0) ? (
               <div className="flex items-center justify-center h-[250px] sm:h-[300px]">
                 <div className="text-center">
-                  <div className="text-6xl mb-4">📊</div>
+                  <div className="text-6xl mb-4"><BarChart3 className="inline w-10 h-10 text-gray-400" /></div>
                   <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">
                     Sem dados para exibir
                   </p>

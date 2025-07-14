@@ -3,12 +3,14 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import Button from "../../components/Button";
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login, user } = useAuth();
   const router = useRouter();
 
@@ -57,14 +59,24 @@ export default function LoginPage() {
             <label htmlFor="password" className="block text-sm font-medium text-text-primary dark:text-white mb-1">Senha</label>
             <input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              className="w-full h-11 px-4 border border-neutral-dark dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white dark:bg-gray-700 text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 transition text-base shadow-sm"
+              className="w-full h-11 px-4 pr-10 border border-neutral-dark dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white dark:bg-gray-700 text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 transition text-base shadow-sm"
               placeholder="Digite sua senha"
               autoComplete="current-password"
             />
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              onClick={() => setShowPassword(v => !v)}
+              className="absolute right-2 top-8 text-text-muted dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 text-lg focus:outline-none"
+              style={{ top: '2.1rem' }}
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
             <div className="flex justify-end mt-1">
               <a href="#" className="text-primary-600 dark:text-primary-400 hover:underline text-xs font-medium">Esqueceu a senha?</a>
             </div>

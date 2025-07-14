@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import Button from "../../components/Button";
+import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -48,63 +49,87 @@ export default function RegisterPage() {
         <p className="text-text-secondary dark:text-gray-300 text-center mb-8">Comece a controlar seus gastos em segundos</p>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-text-primary dark:text-white mb-1">Nome completo</label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              required
-              className="w-full h-11 px-4 border border-neutral-dark dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white dark:bg-gray-700 text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 transition text-base shadow-sm"
-              placeholder="Digite seu nome completo"
-              autoComplete="name"
-              autoFocus
-            />
+            <label htmlFor="name" className="block text-sm font-medium text-text-primary dark:text-white mb-1">Nome</label>
+            <div className="flex items-center border border-neutral-dark dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 shadow-sm h-11">
+              <User className="w-5 h-5 text-text-muted dark:text-gray-400 ml-3 mr-2" />
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+                className="flex-1 h-full bg-transparent outline-none border-none text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 text-base"
+                placeholder="Digite seu nome"
+                autoComplete="name"
+                autoFocus
+              />
+            </div>
           </div>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-text-primary dark:text-white mb-1">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              className="w-full h-11 px-4 border border-neutral-dark dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white dark:bg-gray-700 text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 transition text-base shadow-sm"
-              placeholder="Digite seu email"
-              autoComplete="email"
-            />
+            <div className="flex items-center border border-neutral-dark dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 shadow-sm h-11">
+              <Mail className="w-5 h-5 text-text-muted dark:text-gray-400 ml-3 mr-2" />
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                className="flex-1 h-full bg-transparent outline-none border-none text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 text-base"
+                placeholder="Digite seu email"
+                autoComplete="email"
+              />
+            </div>
           </div>
-          <div className="relative">
+          <div>
             <label htmlFor="password" className="block text-sm font-medium text-text-primary dark:text-white mb-1">Senha</label>
-            <input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              className="w-full h-11 px-4 border border-neutral-dark dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white dark:bg-gray-700 text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 transition text-base shadow-sm pr-10"
-              placeholder="Crie uma senha"
-              autoComplete="new-password"
-            />
-            <button type="button" tabIndex={-1} aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(v => !v)} className="absolute right-2 top-8 text-text-muted dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 text-lg focus:outline-none">
-              {showPassword ? "🙈" : "👁️"}
-            </button>
+            <div className="flex items-center border border-neutral-dark dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 shadow-sm h-11">
+              <Lock className="w-5 h-5 text-text-muted dark:text-gray-400 ml-3 mr-2" />
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                className="flex-1 h-full bg-transparent outline-none border-none text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 text-base"
+                placeholder="Crie uma senha"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                onClick={() => setShowPassword(v => !v)}
+                className="ml-2 mr-3 text-text-muted dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 text-lg focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
-          <div className="relative">
+          <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-text-primary dark:text-white mb-1">Confirmar senha</label>
-            <input
-              id="confirmPassword"
-              type={showConfirm ? "text" : "password"}
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              required
-              className="w-full h-11 px-4 border border-neutral-dark dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white dark:bg-gray-700 text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 transition text-base shadow-sm pr-10"
-              placeholder="Repita a senha"
-              autoComplete="new-password"
-            />
-            <button type="button" tabIndex={-1} aria-label={showConfirm ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowConfirm(v => !v)} className="absolute right-2 top-8 text-text-muted dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 text-lg focus:outline-none">
-              {showConfirm ? "🙈" : "👁️"}
-            </button>
+            <div className="flex items-center border border-neutral-dark dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 shadow-sm h-11">
+              <Lock className="w-5 h-5 text-text-muted dark:text-gray-400 ml-3 mr-2" />
+              <input
+                id="confirmPassword"
+                type={showConfirm ? "text" : "password"}
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                required
+                className="flex-1 h-full bg-transparent outline-none border-none text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 text-base"
+                placeholder="Repita a senha"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label={showConfirm ? "Ocultar senha" : "Mostrar senha"}
+                onClick={() => setShowConfirm(v => !v)}
+                className="ml-2 mr-3 text-text-muted dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 text-lg focus:outline-none"
+              >
+                {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
           {error && <div className="bg-feedback-error/90 text-white rounded-md px-3 py-2 text-sm text-center animate-shake">{error}</div>}
           <Button

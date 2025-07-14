@@ -6,13 +6,14 @@ import { useState } from "react";
 import Button from "./Button";
 import ThemeToggle from "./ThemeToggle";
 import { hasValidAccess } from "../lib/api";
+import { Menu, X, BarChart3, DollarSign, ArrowDownLeft, Tag, User } from "lucide-react";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/rendas", label: "Rendas", icon: "💰" },
-  { href: "/despesas", label: "Despesas", icon: "💸" },
-      { href: "/categorias", label: "Categorias", icon: "🏷️" },
-    { href: "/perfil", label: "Perfil", icon: "👤" },
+  { href: "/dashboard", label: "Dashboard", icon: <BarChart3 className="w-4 h-4" /> },
+  { href: "/rendas", label: "Rendas", icon: <DollarSign className="w-4 h-4" /> },
+  { href: "/despesas", label: "Despesas", icon: <ArrowDownLeft className="w-4 h-4" /> },
+  { href: "/categorias", label: "Categorias", icon: <Tag className="w-4 h-4" /> },
+  { href: "/perfil", label: "Perfil", icon: <User className="w-4 h-4" /> },
 ];
 
 export default function NavBar() {
@@ -74,7 +75,7 @@ export default function NavBar() {
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 rounded-lg text-text-secondary dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-neutral-light dark:hover:bg-gray-800 transition-colors"
             >
-              <span className="text-xl">{isMobileMenuOpen ? '✕' : '☰'}</span>
+              <span className="text-xl">{isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}</span>
             </button>
           </div>
 
@@ -82,7 +83,7 @@ export default function NavBar() {
           <div className="flex items-center space-x-3">
             <ThemeToggle />
             <div className="hidden sm:flex items-center space-x-2 text-sm text-text-secondary dark:text-gray-300">
-              <span>👋 Olá,</span>
+              <span>Olá,</span>
               <span className="font-medium text-text-primary dark:text-white">{user.name || user.email}</span>
             </div>
             <span className="hidden md:inline-block">
@@ -131,7 +132,7 @@ export default function NavBar() {
               <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 mt-4">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-text-secondary dark:text-gray-300">
-                    <span>👋 Olá, {user.name || user.email}</span>
+                    Olá, {user.name || user.email}
                   </div>
                   <Button
                     variant="text"

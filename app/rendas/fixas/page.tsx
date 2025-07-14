@@ -7,6 +7,7 @@ import { apiUrl, authenticatedRequest } from '@/lib/api';
 import { hasValidAccess } from '@/lib/api';
 import Button from '@/components/Button';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { Pencil, Trash2, Clock } from 'lucide-react';
 
 interface Category {
   id: number;
@@ -356,13 +357,13 @@ export default function FixedIncomesPage() {
                         onClick={() => handleEdit(income)}
                         className="bg-yellow-600 hover:bg-yellow-700"
                       >
-                        Editar
+                        <Pencil className="inline w-4 h-4 mr-1 align-text-bottom" /> Editar
                       </Button>
                       <Button
                         onClick={() => handleDelete(income.id)}
                         className="bg-red-600 hover:bg-red-700"
                       >
-                        Excluir
+                        <Trash2 className="inline w-4 h-4 mr-1 align-text-bottom" /> Excluir
                       </Button>
                       <Button
                         onClick={() => {
@@ -382,7 +383,10 @@ export default function FixedIncomesPage() {
                             Carregando...
                           </div>
                         ) : (
-                          `${showHistory === income.id ? 'Ocultar' : 'Ver'} Histórico`
+                          <>
+                            <Clock className="inline w-4 h-4 mr-1 align-text-bottom" />
+                            {showHistory === income.id ? 'Ocultar' : 'Ver'} Histórico
+                          </>
                         )}
                       </Button>
                     </div>

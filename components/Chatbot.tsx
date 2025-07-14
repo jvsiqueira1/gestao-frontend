@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import Button from './Button';
 import LoadingSpinner from './LoadingSpinner';
 import { callAIAPI, AIResponse } from '../lib/ai';
+import { MessageCircle, X, Bot, Mail, CheckCircle, XCircle } from "lucide-react";
 
 interface Message {
   id: string;
@@ -107,7 +108,7 @@ export default function Chatbot() {
     if (isOpen && messages.length === 0) {
       const welcomeMessage: Message = {
         id: '1',
-        text: `Olá ${user?.name || 'usuário'}! 👋 Como posso ajudar você hoje?`,
+        text: `Olá ${user?.name || 'usuário'}! `, // Remove emoji, adiciona ícone no header
         sender: 'bot',
         timestamp: new Date(),
         type: 'text'
@@ -350,7 +351,7 @@ export default function Chatbot() {
 
       const confirmationMessage: Message = {
         id: Date.now().toString(),
-        text: '✅ Sua mensagem foi enviada com sucesso! Entraremos em contato em breve.',
+        text: '<CheckCircle className="inline w-4 h-4 mr-1 text-green-600 align-text-bottom" /> Sua mensagem foi enviada com sucesso! Entraremos em contato em breve.',
         sender: 'bot',
         timestamp: new Date()
       };
@@ -361,7 +362,7 @@ export default function Chatbot() {
     } catch (error) {
       const errorMessage: Message = {
         id: Date.now().toString(),
-        text: '❌ Erro ao enviar mensagem. Tente novamente ou envie diretamente para: suporte@gestaodegastos.com',
+        text: '<XCircle className="inline w-4 h-4 mr-1 text-red-600 align-text-bottom" /> Erro ao enviar mensagem. Tente novamente ou envie diretamente para: suporte@gestaodegastos.com',
         sender: 'bot',
         timestamp: new Date()
       };
@@ -414,9 +415,9 @@ export default function Chatbot() {
         aria-label="Abrir chat de suporte"
       >
         {isOpen ? (
-          <span className="text-lg sm:text-xl">✕</span>
+          <span className="text-lg sm:text-xl"><X className="w-6 h-6" /></span>
         ) : (
-          <span className="text-lg sm:text-xl">💬</span>
+          <span className="text-lg sm:text-xl"><MessageCircle className="w-6 h-6" /></span>
         )}
       </button>
 
@@ -428,7 +429,7 @@ export default function Chatbot() {
             <div className="bg-cyan-500 text-white p-4 rounded-t-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <span className="text-xl">🤖</span>
+                  <span className="text-xl"><Bot className="w-6 h-6" /></span>
                   <div>
                     <h3 className="font-semibold">Suporte</h3>
                     <p className="text-sm opacity-90">Como posso ajudar?</p>
@@ -478,7 +479,7 @@ export default function Chatbot() {
                           onClick={showContactFormMessage}
                           className="block w-full text-left text-xs bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-200 px-3 py-2 rounded border border-cyan-300 dark:border-cyan-700 hover:bg-cyan-200 dark:hover:bg-cyan-800 transition-colors"
                         >
-                          📧 Falar com suporte humano
+                          <Mail className="inline w-4 h-4 mr-1 align-text-bottom" /> Falar com suporte humano
                         </button>
                       </div>
                     )}
@@ -566,7 +567,7 @@ export default function Chatbot() {
                               {isSubmitting ? (
                                 <LoadingSpinner size="sm" text="Enviando..." />
                               ) : (
-                                '📧 Enviar Mensagem'
+                                <><Mail className="inline w-4 h-4 mr-1 align-text-bottom" /> Enviar Mensagem</>
                               )}
                             </Button>
                             

@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, TrendingUp, PieChart, BarChart3, Shield, Clock, Smartphone, DollarSign, Target, Zap, ArrowDown } from 'lucide-react';
+import { ArrowRight, TrendingUp, PieChart, BarChart3, Shield, Clock, Smartphone, DollarSign, Target, Zap, ArrowDown, Sparkles } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
 
@@ -150,7 +150,7 @@ const Home = () => {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="inline-block bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 px-4 py-2 rounded-full text-sm font-medium mb-6 border border-cyan-200 dark:border-cyan-700"
           >
-            ✨ Simplifique suas finanças
+            <Sparkles className="inline w-4 h-4 mr-1 align-text-bottom" /> Simplifique suas finanças
           </motion.span>
           
           <motion.h1
