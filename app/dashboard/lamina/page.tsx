@@ -18,8 +18,8 @@ const formatCurrency = (value: number): string => {
 function LaminaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const month = parseInt(searchParams.get('month') || `${new Date().getMonth() + 1}`);
-  const year = parseInt(searchParams.get('year') || `${new Date().getFullYear()}`);
+  const month = parseInt(searchParams?.get('month') || `${new Date().getMonth() + 1}`);
+  const year = parseInt(searchParams?.get('year') || `${new Date().getFullYear()}`);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
