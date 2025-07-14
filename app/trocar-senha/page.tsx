@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 
 export default function TrocarSenhaPage() {
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") || "";
+  const token = searchParams?.get("token") || "";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [sucesso, setSucesso] = useState(false);
