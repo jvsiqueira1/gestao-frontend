@@ -56,7 +56,7 @@ function LaminaContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 p-4 sm:p-8">
+    <div className="min-h-screen bg-background p-4 sm:p-8">
       <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 print:shadow-none print:bg-white">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Lâmina Financeira</h1>

@@ -158,7 +158,7 @@ export default function ProfileClient() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-custom-light dark:bg-custom-dark flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
         <LoadingSpinner size="lg" text="Carregando perfil..." />
       </div>
     );
@@ -167,9 +167,9 @@ export default function ProfileClient() {
   const isTrialExpired = user.subscription_status === "trialing" && new Date(user.trial_end) < new Date();
 
   return (
-    <div className="bg-custom-light dark:bg-custom-dark p-6">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Perfil</h1>
+        <h1 className="text-3xl font-bold text-foreground mb-8">Perfil</h1>
         {successMessage && user.subscription_status === "active" && (
           <div className="mb-4 p-3 rounded bg-green-100 text-green-800 text-center font-medium">
             {successMessage}
@@ -202,49 +202,49 @@ export default function ProfileClient() {
           {/* Informações do Usuário */}
           <div className="lg:col-span-2 space-y-6">
             {/* Card Principal */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-6">
               <div className="flex items-center space-x-4 mb-6">
                 <div className="w-16 h-16 bg-cyan-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{user.name}</h2>
-                  <p className="text-gray-600 dark:text-gray-300">{user.email} • Membro desde {formatDate(user.created_at)}</p>
+                  <h2 className="text-xl font-semibold text-card-foreground">{user.name}</h2>
+                  <p className="text-muted-foreground">{user.email} • Membro desde {formatDate(user.created_at)}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
-                  <p className="text-gray-900 dark:text-white">{user.name}</p>
+                  <label className="block text-sm font-medium text-muted-foreground">Nome</label>
+                  <p className="text-foreground">{user.name}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                  <p className="text-gray-900 dark:text-white">{user.email}</p>
+                  <label className="block text-sm font-medium text-muted-foreground">Email</label>
+                  <p className="text-foreground">{user.email}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-muted-foreground">Status</label>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.subscription_status)}`}>
                     {getStatusLabel(user.subscription_status)}
                   </span>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plano</label>
-                  <p className="text-gray-900 dark:text-white capitalize">{user.plan || "Gratuito"}</p>
+                  <label className="block text-sm font-medium text-muted-foreground">Plano</label>
+                  <p className="text-foreground capitalize">{user.plan || "Gratuito"}</p>
                 </div>
                 {user.trial_end && user.subscription_status === "trialing" && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-muted-foreground">
                       Trial termina em
                     </label>
-                    <p className={`${isTrialExpired ? "text-red-600" : "text-gray-900 dark:text-white"}`}>
+                    <p className={`${isTrialExpired ? "text-red-600" : "text-foreground"}`}>
                       {formatDate(user.trial_end)}
                     </p>
                   </div>
                 )}
                 {user.premium_until && user.subscription_status === "canceled" && user.plan === "anual" && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-muted-foreground">
                       Acesso premium até
                     </label>
                     <p className="text-blue-600 dark:text-blue-400 font-medium">
@@ -254,7 +254,7 @@ export default function ProfileClient() {
                 )}
                 {user.premium_until && user.subscription_status === "canceled" && user.plan === "mensal" && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-muted-foreground">
                       Acesso premium até
                     </label>
                     <p className="text-blue-600 dark:text-blue-400 font-medium">
@@ -265,14 +265,9 @@ export default function ProfileClient() {
               </div>
             </div>
 
-            {/* Personalização de Cores */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <ColorThemeSelector />
-            </div>
-
             {/* Ações */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Ações</h3>
+            <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Ações</h3>
               <div className="space-y-3">
                 <div className="max-w-3xl mx-auto mt-8">
                   {user.subscription_status !== "active" && (
@@ -281,11 +276,11 @@ export default function ProfileClient() {
                   {user.subscription_status !== "active" ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Plano Mensal */}
-                      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex flex-col items-center border-2 border-cyan-500 h-full">
+                      <div className="bg-card text-card-foreground border-border rounded-lg shadow p-6 flex flex-col items-center border-2 border-cyan-500 h-full">
                         <h3 className="text-xl font-semibold mb-2">Mensal</h3>
                         <div className="text-3xl font-bold text-cyan-600 mb-2">R$19,90</div>
-                        <div className="text-gray-500 mb-4">por mês</div>
-                        <ul className="mb-6 text-sm text-gray-700 dark:text-gray-200 space-y-1 flex-grow">
+                        <div className="text-muted-foreground mb-4">por mês</div>
+                        <ul className="mb-6 text-sm text-muted-foreground space-y-1 flex-grow">
                           <li>✔️ Acesso total ao sistema</li>
                           <li>✔️ Suporte prioritário</li>
                           <li>✔️ Cancelamento a qualquer momento</li>
@@ -295,14 +290,14 @@ export default function ProfileClient() {
                         </Button>
                       </div>
                       {/* Plano Anual */}
-                      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex flex-col items-center border-4 border-yellow-500 h-full">
+                      <div className="bg-card text-card-foreground border-border rounded-lg shadow p-6 flex flex-col items-center border-4 border-yellow-500 h-full">
                         <h3 className="text-xl font-semibold mb-2 flex items-center gap-2">
                           Anual
                           <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded">Economize 37%</span>
                         </h3>
                         <div className="text-3xl font-bold text-yellow-600 mb-2">R$150,00</div>
-                        <div className="text-gray-500 mb-1">por ano</div>
-                        <ul className="mb-6 text-sm text-gray-700 dark:text-gray-200 space-y-1 flex-grow">
+                        <div className="text-muted-foreground mb-1">por ano</div>
+                        <ul className="mb-6 text-sm text-muted-foreground space-y-1 flex-grow">
                           <li>✔️ Todos os benefícios do mensal</li>
                           <li>✔️ Economia de <b>R$89,80</b> ao ano</li>
                           <li>✔️ Pagamento único, sem surpresas</li>
@@ -313,9 +308,9 @@ export default function ProfileClient() {
                   ) : (
                     <div className="mt-8 text-center">
                       <div className="text-green-700 font-semibold mb-2">Sua assinatura está ativa!</div>
-                      <div className="text-gray-600 text-sm mb-4">Plano: {user.plan || 'Premium'}</div>
+                      <div className="text-muted-foreground text-sm mb-4">Plano: {user.plan || 'Premium'}</div>
                       {user.premium_until && (
-                        <div className="text-gray-600 text-sm mb-4">
+                        <div className="text-muted-foreground text-sm mb-4">
                           Acesso premium até: {formatDate(user.premium_until)}
                         </div>
                       )}
@@ -339,15 +334,21 @@ export default function ProfileClient() {
           </div>
           {/* Sidebar de Benefícios */}
           <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Benefícios do Plano Pago</h3>
-              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+            <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-6">
+              <h3 className="text-lg font-bold text-card-foreground mb-4">Benefícios do Plano Pago</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Dashboard completo</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Categorização de despesas</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Relatórios detalhados</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Exportação de dados</li>
                 <li className="flex items-center"><span className="text-green-500 mr-2">✓</span> Suporte prioritário</li>
               </ul>
+            </div>
+            {/* Personalização de Cores */}
+            <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-6">
+              <h3 className="text-lg font-bold text-card-foreground mb-2">Personalizar Cores do App</h3>
+              <p className="text-muted-foreground mb-4">Escolha as cores que mais combinam com seu estilo. As mudanças são aplicadas instantaneamente.</p>
+              <ColorThemeSelector />
             </div>
           </div>
         </div>

@@ -402,7 +402,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-custom-light dark:bg-custom-dark flex items-center justify-center">
+      <div className="min-h-screen bg-background dark:bg-gray-900 flex items-center justify-center">
         <LoadingSpinner size="lg" text="Carregando dashboard..." />
       </div>
     );
@@ -410,7 +410,7 @@ export default function Dashboard() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-custom-light dark:bg-custom-dark flex items-center justify-center">
+      <div className="min-h-screen bg-background dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600">Erro ao carregar dados do dashboard</p>
         </div>
@@ -421,17 +421,18 @@ export default function Dashboard() {
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 
   return (
-    <div className="bg-custom-light dark:bg-custom-dark p-4 sm:p-6">
+    <div className="bg-background text-foreground">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          {/* Título principal fora de card: */}
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
           <Button onClick={handleGerarLamina} className="w-full sm:w-auto" disabled={laminaLoading}>
             {laminaLoading ? "Gerando..." : <><FileText className="inline w-4 h-4 mr-1 align-text-bottom" /> Gerar Lâmina</>}
           </Button>
         </div>
 
         {/* Filtros de Mês e Ano */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 mb-6 sm:mb-8">
+        <div className="bg-card dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Filtros</h3>
             {(selectedMonth !== new Date().getMonth() + 1 || selectedYear !== new Date().getFullYear()) && (
@@ -449,13 +450,13 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Mês
               </label>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                className={`w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-200 bg-background text-foreground ${
                   selectedMonth === new Date().getMonth() + 1 && selectedYear === new Date().getFullYear()
                     ? 'border-green-500 focus:border-green-500'
                     : 'border-gray-300 dark:border-gray-600 focus:border-cyan-500'
@@ -469,13 +470,13 @@ export default function Dashboard() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Ano
               </label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                className={`w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-200 bg-background text-foreground ${
                   selectedMonth === new Date().getMonth() + 1 && selectedYear === new Date().getFullYear()
                     ? 'border-green-500 focus:border-green-500'
                     : 'border-gray-300 dark:border-gray-600 focus:border-cyan-500'
@@ -491,7 +492,7 @@ export default function Dashboard() {
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-3">
             {data.userCreatedAt && (
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Membro desde {new Date(data.userCreatedAt).toLocaleDateString('pt-BR')}
               </p>
             )}
@@ -505,24 +506,24 @@ export default function Dashboard() {
         
         {/* Cards de resumo */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">
+          <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-card-foreground mb-2">
               Receitas de {getMonthName(selectedMonth)}/{selectedYear}
             </h3>
             <p className="text-2xl sm:text-3xl font-bold text-green-600">
               {formatCurrency(data.monthlyIncome || 0)}
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">
+          <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-card-foreground mb-2">
               Despesas de {getMonthName(selectedMonth)}/{selectedYear}
             </h3>
             <p className="text-2xl sm:text-3xl font-bold text-red-600">
               {formatCurrency(data.monthlyExpense || 0)}
             </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 sm:col-span-2 lg:col-span-1">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">Saldo</h3>
+          <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-4 sm:p-6 sm:col-span-2 lg:col-span-1">
+            <h3 className="text-base sm:text-lg font-semibold text-card-foreground mb-2">Saldo</h3>
             <p className={`text-2xl sm:text-3xl font-bold ${(data.monthlyIncome - data.monthlyExpense) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency((data.monthlyIncome || 0) - (data.monthlyExpense || 0))}
             </p>
@@ -531,7 +532,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8">
           {/* Gráfico de linha */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 select-none">
+          <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-4 sm:p-6 select-none">
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Receitas x Despesas ({selectedYear})
             </h3>
@@ -551,7 +552,7 @@ export default function Dashboard() {
           </div>
 
           {/* Gráfico de pizza */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
+          <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-4 sm:p-6">
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Despesas por Categoria ({getMonthName(selectedMonth)}/{selectedYear})
             </h3>
@@ -615,7 +616,7 @@ export default function Dashboard() {
               {goals.map((goal: any) => {
                 const percent = Math.min(100, (goal.saved / goal.target) * 100);
                 return (
-                  <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex flex-col gap-3 relative">
+                  <div key={goal.id} className="bg-card text-card-foreground border border-border rounded-lg shadow p-6 flex flex-col gap-3 relative">
                     {/* Selo de meta concluída */}
                     {percent >= 100 && (
                       <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg animate-bounce z-10">
@@ -658,33 +659,33 @@ export default function Dashboard() {
         {/* Modal de Exportação */}
         {showExportModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-md">
+            <div className="bg-card dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-md">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                 Exportar Relatório para Excel
               </h2>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Data Inicial
                   </label>
                   <input
                     type="date"
                     value={dateRange.startDate}
                     onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">
                     Data Final
                   </label>
                   <input
                     type="date"
                     value={dateRange.endDate}
                     onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground"
                   />
                 </div>
 
@@ -723,7 +724,7 @@ export default function Dashboard() {
 
         {showGoalModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-md">
+            <div className="bg-card dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-md">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Nova Meta Financeira</h2>
               <form onSubmit={async (e) => {
                 e.preventDefault();
@@ -758,20 +759,20 @@ export default function Dashboard() {
                 }
               }} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
-                  <input type="text" value={goalForm.name} onChange={e => setGoalForm(f => ({ ...f, name: e.target.value }))} required className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Nome</label>
+                  <input type="text" value={goalForm.name} onChange={e => setGoalForm(f => ({ ...f, name: e.target.value }))} required className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
-                  <textarea value={goalForm.description} onChange={e => setGoalForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Descrição</label>
+                  <textarea value={goalForm.description} onChange={e => setGoalForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor objetivo (R$)</label>
-                  <input type="number" min="0.01" step="0.01" value={goalForm.target} onChange={e => setGoalForm(f => ({ ...f, target: e.target.value }))} required className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Valor objetivo (R$)</label>
+                  <input type="number" min="0.01" step="0.01" value={goalForm.target} onChange={e => setGoalForm(f => ({ ...f, target: e.target.value }))} required className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data limite (opcional)</label>
-                  <input type="date" value={goalForm.deadline} onChange={e => setGoalForm(f => ({ ...f, deadline: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Data limite (opcional)</label>
+                  <input type="date" value={goalForm.deadline} onChange={e => setGoalForm(f => ({ ...f, deadline: e.target.value }))} className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground" />
                 </div>
                 {goalError && <div className="text-red-600 text-sm">{goalError}</div>}
                 <div className="flex gap-3 mt-4">
@@ -785,7 +786,7 @@ export default function Dashboard() {
 
         {showAddValueModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-md">
+            <div className="bg-card dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-md">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Adicionar valor à meta</h2>
               <form onSubmit={async (e) => {
                 e.preventDefault();
@@ -815,8 +816,8 @@ export default function Dashboard() {
                 }
               }} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor a adicionar (R$)</label>
-                  <input type="number" min="0.01" step="0.01" value={addValueAmount} onChange={e => setAddValueAmount(e.target.value)} required className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Valor a adicionar (R$)</label>
+                  <input type="number" min="0.01" step="0.01" value={addValueAmount} onChange={e => setAddValueAmount(e.target.value)} required className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground" />
                 </div>
                 {addValueError && <div className="text-red-600 text-sm">{addValueError}</div>}
                 <div className="flex gap-3 mt-4">
@@ -830,7 +831,7 @@ export default function Dashboard() {
 
         {editGoalId && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-md">
+            <div className="bg-card dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-md">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Editar Meta Financeira</h2>
               <form onSubmit={async (e) => {
                 e.preventDefault();
@@ -866,24 +867,24 @@ export default function Dashboard() {
                 }
               }} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
-                  <input type="text" value={editGoalForm.name} onChange={e => setEditGoalForm(f => ({ ...f, name: e.target.value }))} required className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Nome</label>
+                  <input type="text" value={editGoalForm.name} onChange={e => setEditGoalForm(f => ({ ...f, name: e.target.value }))} required className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição</label>
-                  <textarea value={editGoalForm.description} onChange={e => setEditGoalForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Descrição</label>
+                  <textarea value={editGoalForm.description} onChange={e => setEditGoalForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor objetivo (R$)</label>
-                  <input type="number" min="0.01" step="0.01" value={editGoalForm.target} onChange={e => setEditGoalForm(f => ({ ...f, target: e.target.value }))} required className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Valor objetivo (R$)</label>
+                  <input type="number" min="0.01" step="0.01" value={editGoalForm.target} onChange={e => setEditGoalForm(f => ({ ...f, target: e.target.value }))} required className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data limite (opcional)</label>
-                  <input type="date" value={editGoalForm.deadline} onChange={e => setEditGoalForm(f => ({ ...f, deadline: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Data limite (opcional)</label>
+                  <input type="date" value={editGoalForm.deadline} onChange={e => setEditGoalForm(f => ({ ...f, deadline: e.target.value }))} className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                  <select value={editGoalForm.status} onChange={e => setEditGoalForm(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">Status</label>
+                  <select value={editGoalForm.status} onChange={e => setEditGoalForm(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground">
                     <option value="active">Ativa</option>
                     <option value="completed">Concluída</option>
                   </select>

@@ -287,7 +287,7 @@ export default function ExpensePage() {
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i);
 
   return (
-    <div className="bg-custom-light min-h-screen dark:bg-custom-dark p-4 sm:p-6">
+    <div className="bg-background text-foreground min-h-screen p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Despesas</h1>
@@ -371,8 +371,8 @@ export default function ExpensePage() {
         </div>
 
         {showForm && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+          <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-semibold text-card-foreground">
               {editingId ? "Editar Despesa" : "Nova Despesa"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -586,7 +586,7 @@ export default function ExpensePage() {
         )}
 
         {monthLoading ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="bg-card text-card-foreground border border-border rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Lista de Despesas</h3>
             </div>
@@ -595,7 +595,7 @@ export default function ExpensePage() {
             </div>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="bg-card text-card-foreground border border-border rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Lista de Despesas</h3>
             </div>

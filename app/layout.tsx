@@ -8,6 +8,7 @@ import NavBar from "../components/NavBar";
 import Footer from "../components/Footer";
 import ChatbotWrapper from "../components/ChatbotWrapper";
 import ReactQueryProvider from "../components/ReactQueryProvider";
+import ThemeGate from "../components/ThemeGate";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -66,23 +67,30 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <ReactQueryProvider>
-          <ThemeProvider>
-            <ColorThemeProvider>
-              <AuthProvider>
-                <div className="min-h-screen flex flex-col">
-                  <NavBar />
-                  <main className="flex-1">
-                    {children}
-                  </main>
-                  <Footer />
-                </div>
-                <ChatbotWrapper />
-              </AuthProvider>
-            </ColorThemeProvider>
-          </ThemeProvider>
-        </ReactQueryProvider>
+      <head>
+        {/* Outros elementos do <head> (sem script de tema) */}
+      </head>
+      <body className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
+        <ThemeGate>
+          <ReactQueryProvider>
+            <ThemeProvider>
+              <ColorThemeProvider>
+                <AuthProvider>
+                  <div className="min-h-screen flex flex-col">
+                    <ThemeGate>
+                      <NavBar />
+                    </ThemeGate>
+                    <main className="flex-1">
+                      {children}
+                    </main>
+                    <Footer />
+                  </div>
+                  <ChatbotWrapper />
+                </AuthProvider>
+              </ColorThemeProvider>
+            </ThemeProvider>
+          </ReactQueryProvider>
+        </ThemeGate>
       </body>
     </html>
   );

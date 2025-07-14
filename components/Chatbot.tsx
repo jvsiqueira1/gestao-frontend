@@ -411,7 +411,7 @@ export default function Chatbot() {
       {/* Botão flutuante */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-cyan-500 hover:bg-cyan-600 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-50"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-12 h-12 sm:w-14 sm:h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-50"
         aria-label="Abrir chat de suporte"
       >
         {isOpen ? (
@@ -426,7 +426,7 @@ export default function Chatbot() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-end p-2 sm:p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md h-96 sm:h-96 flex flex-col">
             {/* Header */}
-            <div className="bg-cyan-500 text-white p-4 rounded-t-lg">
+            <div className="bg-primary text-primary-foreground p-4 rounded-t-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span className="text-xl"><Bot className="w-6 h-6" /></span>
@@ -438,7 +438,7 @@ export default function Chatbot() {
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-white hover:text-gray-200 transition-colors"
+                  className="text-primary-foreground hover:text-gray-200 transition-colors"
                 >
                   <span className="text-xl">✕</span>
                 </button>
@@ -455,8 +455,8 @@ export default function Chatbot() {
                   <div
                     className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                       message.sender === 'user'
-                        ? 'bg-cyan-500 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground'
                     }`}
                   >
                     <p className="text-sm whitespace-pre-line">{message.text}</p>
@@ -477,7 +477,7 @@ export default function Chatbot() {
                         {/* Botão de contato manual */}
                         <button
                           onClick={showContactFormMessage}
-                          className="block w-full text-left text-xs bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-200 px-3 py-2 rounded border border-cyan-300 dark:border-cyan-700 hover:bg-cyan-200 dark:hover:bg-cyan-800 transition-colors"
+                          className="block w-full text-left text-xs bg-primary/10 dark:bg-primary/20 text-primary-foreground px-3 py-2 rounded border border-primary-foreground hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
                         >
                           <Mail className="inline w-4 h-4 mr-1 align-text-bottom" /> Falar com suporte humano
                         </button>
@@ -489,7 +489,7 @@ export default function Chatbot() {
                       <div className="mt-3">
                         <a
                           href="mailto:suporte@gestaodegastos.com"
-                          className="text-cyan-500 hover:text-cyan-600 underline text-sm"
+                          className="text-primary hover:text-primary/90 underline text-sm"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -511,7 +511,7 @@ export default function Chatbot() {
                               value={contactForm.name}
                               onChange={(e) => handleContactFormChange('name', e.target.value)}
                               required
-                              className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                              className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               placeholder="Seu nome completo"
                             />
                           </div>
@@ -525,7 +525,7 @@ export default function Chatbot() {
                               value={contactForm.email}
                               onChange={(e) => handleContactFormChange('email', e.target.value)}
                               required
-                              className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                              className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               placeholder="seu@email.com"
                             />
                           </div>
@@ -539,7 +539,7 @@ export default function Chatbot() {
                               value={contactForm.subject}
                               onChange={(e) => handleContactFormChange('subject', e.target.value)}
                               required
-                              className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                              className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                               placeholder="Resumo da sua dúvida"
                             />
                           </div>
@@ -553,7 +553,7 @@ export default function Chatbot() {
                               onChange={(e) => handleContactFormChange('message', e.target.value)}
                               required
                               rows={3}
-                              className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                              className="w-full px-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                               placeholder="Descreva sua dúvida ou problema em detalhes..."
                             />
                           </div>
@@ -612,7 +612,7 @@ export default function Chatbot() {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Digite sua pergunta..."
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   disabled={isTyping}
                 />
                 <Button

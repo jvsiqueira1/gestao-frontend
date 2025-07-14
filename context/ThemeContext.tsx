@@ -12,37 +12,45 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Verificar se há tema salvo no localStorage
+    // Lê o tema do localStorage ou preferência do sistema
     const savedTheme = localStorage.getItem('theme') as Theme;
     if (savedTheme) {
       setTheme(savedTheme);
     } else {
-      // Verificar preferência do sistema
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       setTheme(prefersDark ? 'dark' : 'light');
     }
+    setMounted(true);
   }, []);
 
   useEffect(() => {
-    // Aplicar tema ao documento
+    // Aplica a classe no <html>
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
     localStorage.setItem('theme', theme);
-    
-    // Forçar reaplicação das cores personalizadas
-    const colorTheme = localStorage.getItem('colorTheme');
-    if (colorTheme) {
-      const event = new CustomEvent('themeChanged', { detail: { theme } });
-      window.dispatchEvent(event);
-    }
   }, [theme]);
+
+  // Sincroniza entre abas
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'theme' && e.newValue) {
+        setTheme(e.newValue as Theme);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
+
+  // Só renderiza o app após o tema ser definido
+  if (!mounted) return null;
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
