@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import Button from "../../components/Button";
 import { Eye, EyeOff } from 'lucide-react';
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -78,7 +79,12 @@ export default function LoginPage() {
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
             <div className="flex justify-end mt-1">
-              <a href="#" className="text-primary-600 dark:text-primary-400 hover:underline text-xs font-medium">Esqueceu a senha?</a>
+              <Link
+                href="/esqueci-senha"
+                className="text-primary-600 dark:text-primary-400 hover:underline text-xs font-medium"
+              >
+                Esqueceu a senha?
+              </Link>
             </div>
           </div>
           {error && <div className="bg-feedback-error/90 text-white rounded-md px-3 py-2 text-sm text-center animate-shake">{error}</div>}
