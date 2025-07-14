@@ -8,6 +8,7 @@ import ThemeToggle from "./ThemeToggle";
 import { hasValidAccess } from "../lib/api";
 import { Menu, X, BarChart3, DollarSign, ArrowDownLeft, Tag, User } from "lucide-react";
 import { useColorTheme } from '../context/ColorThemeContext';
+import LoadingSpinner from "./LoadingSpinner";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: <BarChart3 className="w-4 h-4" /> },
@@ -18,7 +19,7 @@ const navItems = [
 ];
 
 export default function NavBar() {
-  const { user, logout } = useAuth();
+  const { user, logout, logoutLoading } = useAuth();
   const rawPathname = usePathname();
   const pathname = rawPathname ?? "/";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -50,33 +51,25 @@ export default function NavBar() {
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-1">
-            {navItems.map(item => {
-              const isProfile = item.href === "/perfil";
-              const isDisabled = !hasAccess && !isProfile;
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
               return (
-                <span key={item.href} title={isDisabled ? "Regularize sua assinatura para acessar" : undefined}>
-                  <Link
-                    href={isDisabled ? pathname : item.href}
-                    tabIndex={isDisabled ? -1 : 0}
-                    aria-disabled={isDisabled}
-                    className={colorTheme === 'default'
-                      ? `flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors select-none
-                          ${pathname === item.href
-                            ? 'bg-cyan-100 text-cyan-700 border border-cyan-300 dark:bg-cyan-900 dark:text-cyan-300 dark:border-cyan-700'
-                            : 'text-gray-500 hover:text-cyan-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-cyan-400 dark:hover:bg-gray-800'}
-                          ${isDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`
-                      : `flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors select-none ${
-                          pathname === item.href
-                            ? 'bg-primary/10 text-primary border border-primary'
-                            : 'text-muted-foreground hover:text-primary hover:bg-muted'} ${isDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-                    onClick={e => {
-                      if (isDisabled) e.preventDefault();
-                    }}
-                  >
-                    <span className="text-base">{item.icon}</span>
-                    <span>{item.label}</span>
-                  </Link>
-                </span>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? colorTheme === 'default'
+                        ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300'
+                        : 'bg-primary text-primary-foreground'
+                      : colorTheme === 'default'
+                        ? 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </Link>
               );
             })}
           </div>
@@ -104,9 +97,17 @@ export default function NavBar() {
               <Button
                 variant="text"
                 onClick={logout}
+                disabled={logoutLoading}
                 className="text-feedback-error hover:text-feedback-error/80"
               >
-                Sair
+                {logoutLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <LoadingSpinner size="sm" text="" />
+                    <span>Saindo...</span>
+                  </div>
+                ) : (
+                  "Sair"
+                )}
               </Button>
             </span>
           </div>
@@ -114,55 +115,52 @@ export default function NavBar() {
 
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
-          <div className={colorTheme === 'default'
-            ? 'md:hidden border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-black'
-            : 'md:hidden border-t border-border bg-background'}>
-            <div className="py-4 space-y-2">
-              {navItems.map(item => {
-                const isProfile = item.href === "/perfil";
-                const isDisabled = !hasAccess && !isProfile;
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              {navItems.map((item) => {
+                const isActive = pathname === item.href;
                 return (
-                  <span key={item.href} title={isDisabled ? "Regularize sua assinatura para acessar" : undefined}>
-                    <Link
-                      href={isDisabled ? String(pathname ?? "/") : item.href}
-                      tabIndex={isDisabled ? -1 : 0}
-                      aria-disabled={isDisabled}
-                      onClick={e => {
-                        if (isDisabled) e.preventDefault();
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className={colorTheme === 'default'
-                        ? `flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors select-none
-                            ${pathname === item.href
-                              ? 'bg-cyan-100 text-cyan-700 border border-cyan-300 dark:bg-cyan-900 dark:text-cyan-300 dark:border-cyan-700'
-                              : 'text-gray-500 hover:text-cyan-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-cyan-400 dark:hover:bg-gray-800'}
-                            ${isDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`
-                        : `flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors select-none ${
-                            pathname === item.href
-                              ? 'bg-primary/10 text-primary border border-primary'
-                              : 'text-muted-foreground hover:text-primary hover:bg-muted'} ${isDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-                    >
-                      <span className="text-lg">{item.icon}</span>
-                      <span>{item.label}</span>
-                    </Link>
-                  </span>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-base font-medium transition-colors ${
+                      isActive
+                        ? colorTheme === 'default'
+                          ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300'
+                          : 'bg-primary text-primary-foreground'
+                        : colorTheme === 'default'
+                          ? 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
                 );
               })}
-              
-              {/* User info in mobile menu */}
-              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 mt-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Olá, <span className="font-medium text-foreground">{user.name || user.email}</span>
-                  </div>
-                  <Button
-                    variant="text"
-                    onClick={logout}
-                    className="text-feedback-error hover:text-feedback-error/80 text-sm"
-                  >
-                    Sair
-                  </Button>
+            </div>
+            
+            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 mt-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Olá, <span className="font-medium text-foreground">{user.name || user.email}</span>
                 </div>
+                <Button
+                  variant="text"
+                  onClick={logout}
+                  disabled={logoutLoading}
+                  className="text-feedback-error hover:text-feedback-error/80 text-sm"
+                >
+                  {logoutLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <LoadingSpinner size="sm" text="" />
+                      <span>Saindo...</span>
+                    </div>
+                  ) : (
+                    "Sair"
+                  )}
+                </Button>
               </div>
             </div>
           </div>

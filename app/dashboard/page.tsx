@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useRequestLoading } from "../../lib/useRequestLoading";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis as BarXAxis, YAxis as BarYAxis, Tooltip as BarTooltip, Legend } from "recharts";
 import { utils as XLSXUtils, writeFile as XLSXWriteFile } from 'xlsx';
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import DashboardLoadingOverlay from "../../components/DashboardLoadingOverlay";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
@@ -41,6 +43,7 @@ function mergeCategoryData(incomes: any[], expenses: any[]) {
 
 export default function Dashboard() {
   const { token, user } = useAuth();
+  const { withLoading } = useRequestLoading();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -107,27 +110,29 @@ export default function Dashboard() {
   }, [user, router]);
 
   const fetchData = async () => {
-    try {
-      const res = await fetch(`${apiUrl(API_ENDPOINTS.FINANCE.DASHBOARD)}?month=${selectedMonth}&year=${selectedYear}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = await res.json();
-      setData(result);
-      
-      // Gerar lista de anos disponíveis baseada na data de cadastro do usuário
-      if (result.userCreatedYear) {
-        const currentYear = new Date().getFullYear();
-        const years = [];
-        for (let year = result.userCreatedYear; year <= currentYear; year++) {
-          years.push(year);
+    await withLoading(async () => {
+      try {
+        const res = await fetch(`${apiUrl(API_ENDPOINTS.FINANCE.DASHBOARD)}?month=${selectedMonth}&year=${selectedYear}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = await res.json();
+        setData(result);
+        
+        // Gerar lista de anos disponíveis baseada na data de cadastro do usuário
+        if (result.userCreatedYear) {
+          const currentYear = new Date().getFullYear();
+          const years = [];
+          for (let year = result.userCreatedYear; year <= currentYear; year++) {
+            years.push(year);
+          }
+          setAvailableYears(years);
         }
-        setAvailableYears(years);
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Erro ao carregar dados:", error);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const fetchExportData = async () => {
@@ -906,6 +911,9 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+      
+      {/* Loading Overlay */}
+      <DashboardLoadingOverlay />
       {/* Lâmina oculta para PDF */}
       {showLamina && laminaData ? (() => {
         // Indicadores Visuais Simples - Despesas por Categoria

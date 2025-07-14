@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
 import { ColorThemeProvider } from "../context/ColorThemeContext";
+import { LoadingProvider } from "../context/LoadingContext";
 import NavBar from "../components/NavBar";
 import Footer from "../components/Footer";
 import ChatbotWrapper from "../components/ChatbotWrapper";
@@ -75,18 +76,20 @@ export default function RootLayout({
           <ReactQueryProvider>
             <ThemeProvider>
               <ColorThemeProvider>
-                <AuthProvider>
-                  <div className="min-h-screen flex flex-col">
-                    <ThemeGate>
-                      <NavBar />
-                    </ThemeGate>
-                    <main className="flex-1">
-                      {children}
-                    </main>
-                    <Footer />
-                  </div>
-                  <ChatbotWrapper />
-                </AuthProvider>
+                <LoadingProvider>
+                  <AuthProvider>
+                    <div className="min-h-screen flex flex-col">
+                      <ThemeGate>
+                        <NavBar />
+                      </ThemeGate>
+                      <main className="flex-1">
+                        {children}
+                      </main>
+                      <Footer />
+                    </div>
+                    <ChatbotWrapper />
+                  </AuthProvider>
+                </LoadingProvider>
               </ColorThemeProvider>
             </ThemeProvider>
           </ReactQueryProvider>

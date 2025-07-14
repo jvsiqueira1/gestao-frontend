@@ -347,7 +347,6 @@ export default function IncomePage() {
           <div className="flex gap-2 w-full sm:w-auto">
             <Button 
               onClick={() => window.location.href = '/rendas/fixas'} 
-              variant="secondary"
             >
               <Settings className="inline w-4 h-4 mr-1 align-text-bottom" /> Rendas Fixas
             </Button>

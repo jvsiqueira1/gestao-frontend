@@ -8,10 +8,11 @@ interface AuthContextType {
   user: any;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   setAuthToken: (newToken: string) => Promise<void>;
+  logoutLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -56,11 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await login(email, password);
   };
 
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem("token");
-    router.push("/");
+  const logout = async () => {
+    setLogoutLoading(true);
+    try {
+      // Simular um pequeno delay para mostrar o loading
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setToken(null);
+      setUser(null);
+      localStorage.removeItem("token");
+      router.push("/");
+    } finally {
+      setLogoutLoading(false);
+    }
   };
 
   const refreshUser = async () => {
@@ -74,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, register, refreshUser, setAuthToken }}>
+    <AuthContext.Provider value={{ user, token, login, logout, register, refreshUser, setAuthToken, logoutLoading }}>
       {children}
     </AuthContext.Provider>
   );
