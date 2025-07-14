@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
-export default function TrocarSenhaPage() {
+function TrocarSenhaPage() {
   const searchParams = useSearchParams();
   const token = searchParams?.get("token") || "";
   const [password, setPassword] = useState("");
@@ -105,5 +105,13 @@ export default function TrocarSenhaPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <TrocarSenhaPage />
+    </Suspense>
   );
 } 

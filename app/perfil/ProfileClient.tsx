@@ -7,6 +7,7 @@ import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import AssinaturaAnualButton from "../../components/AssinaturaAnualButton";
 import ColorThemeSelector from "../../components/ColorThemeSelector";
+import Link from "next/link";
 
 export default function ProfileClient() {
   const { user, token, refreshUser } = useAuth();
@@ -18,7 +19,7 @@ export default function ProfileClient() {
 
   // Detectar retorno do checkout e atualizar usuário
   useEffect(() => {
-    const success = searchParams.get("success");
+    const success = searchParams?.get("success");
     // Só execute se user existir, status for 'active' e success=true
     if (success === "true" && user && user.subscription_status === "active") {
       localStorage.setItem("stripeSuccessMsg", "Assinatura reativada com sucesso!");

@@ -18,7 +18,8 @@ const navItems = [
 
 export default function NavBar() {
   const { user, logout } = useAuth();
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = rawPathname ?? "/";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Usar a função utilitária para verificar acesso
@@ -108,7 +109,7 @@ export default function NavBar() {
                 return (
                   <span key={item.href} title={isDisabled ? "Regularize sua assinatura para acessar" : undefined}>
                     <Link
-                      href={isDisabled ? pathname : item.href}
+                      href={isDisabled ? String(pathname ?? "/") : item.href}
                       tabIndex={isDisabled ? -1 : 0}
                       aria-disabled={isDisabled}
                       onClick={e => {
