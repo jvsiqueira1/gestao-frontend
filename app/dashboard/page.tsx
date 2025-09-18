@@ -109,6 +109,18 @@ export default function Dashboard() {
     }
   }, [user, router]);
 
+  // Atualizar dados quando o usuário volta para a página (foco na janela)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user && hasValidAccess(user)) {
+        fetchData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user, selectedMonth, selectedYear]);
+
   const fetchData = async () => {
     await withLoading(async () => {
       try {
@@ -962,7 +974,15 @@ export default function Dashboard() {
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                   .map((t: any, idx: number) => (
                     <tr key={idx}>
-                      <td style={{ padding: 8, border: '1px solid #e5e7eb' }}>{new Date(t.date).toLocaleDateString('pt-BR')}</td>
+                      <td style={{ padding: 8, border: '1px solid #e5e7eb' }}>
+                        {(() => {
+                          const date = new Date(t.date);
+                          const year = date.getUTCFullYear();
+                          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                          const day = String(date.getUTCDate()).padStart(2, '0');
+                          return `${day}/${month}/${year}`;
+                        })()}
+                      </td>
                       <td style={{ padding: 8, border: '1px solid #e5e7eb' }}>{t.category_name || '-'}</td>
                       <td style={{ padding: 8, border: '1px solid #e5e7eb' }}>{t.description || '-'}</td>
                       <td style={{ padding: 8, border: '1px solid #e5e7eb', color: '#dc2626', fontWeight: 600 }}>{formatCurrency(parseFloat(t.value))}</td>

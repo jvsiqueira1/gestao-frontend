@@ -177,7 +177,13 @@ export default function FixedIncomesPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    // Tratar datas UTC corretamente para evitar problemas de timezone
+    const date = new Date(dateString);
+    // Usar UTC para evitar conversão de timezone
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${day}/${month}/${year}`;
   };
 
   if (loading) {
