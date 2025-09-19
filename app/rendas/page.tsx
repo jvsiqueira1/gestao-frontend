@@ -191,8 +191,8 @@ export default function IncomePage() {
       category_id: income.category_id.toString(),
       isFixed: income.isFixed || false,
       recurrenceType: income.recurrenceType || "monthly",
-      startDate: formatDateForInput(income.startDate),
-      endDate: formatDateForInput(income.endDate) || "",
+      startDate: income.startDate ? formatDateForInput(income.startDate) : "",
+      endDate: income.endDate ? formatDateForInput(income.endDate) : "",
     });
     setEditingId(income.id);
     setShowForm(true);

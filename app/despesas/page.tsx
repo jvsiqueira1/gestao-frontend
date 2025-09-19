@@ -195,8 +195,8 @@ export default function ExpensePage() {
       category_id: expense.category_id.toString(),
       isFixed: expense.isFixed || false,
       recurrenceType: expense.recurrenceType || "monthly",
-      startDate: formatDateForInput(expense.startDate),
-      endDate: formatDateForInput(expense.endDate) || "",
+      startDate: expense.startDate ? formatDateForInput(expense.startDate) : "",
+      endDate: expense.endDate ? formatDateForInput(expense.endDate) : "",
     });
     setEditingId(expense.id);
     setShowForm(true);
