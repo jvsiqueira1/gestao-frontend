@@ -16,6 +16,8 @@ import { Card, CardHead, CardTitle, CardSub } from "../../components/ui/Card";
 import KpiHero from "../../components/ui/KpiHero";
 import LineIE from "../../components/charts/LineIE";
 import Donut from "../../components/charts/Donut";
+import LineSeries from "../../components/charts/LineSeries";
+import { investmentTypeMeta, InvestmentSummary } from "../../lib/investments";
 import CatChip, { categoryColor } from "../../components/ui/CatChip";
 import Segmented from "../../components/ui/Segmented";
 import Button from "../../components/Button";
@@ -284,6 +286,99 @@ export default function Dashboard() {
               )}
             </Card>
           </div>
+
+          {data?.investments && (
+            <>
+              <div className="flex items-center justify-between mb-4 mt-2">
+                <h2
+                  className="font-display"
+                  style={{ fontSize: 19, fontWeight: 600, letterSpacing: "-0.02em" }}
+                >
+                  Patrimônio
+                </h2>
+                <a href="/investimentos" className="text-xs" style={{ color: "var(--muted)" }}>
+                  Ver carteira →
+                </a>
+              </div>
+
+              <div
+                className="grid mb-[var(--gap)]"
+                style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}
+              >
+                <InvStat
+                  label="Patrimônio total"
+                  value={fmtBRL((data.investments as InvestmentSummary).totalPatrimony)}
+                  hint={`${(data.investments as InvestmentSummary).activeCount} ativos`}
+                />
+                <InvStat
+                  label="Aportes no mês"
+                  value={fmtBRL((data.investments as InvestmentSummary).monthlyAportes)}
+                />
+                <InvStat
+                  label="Rentabilidade"
+                  value={`${(data.investments as InvestmentSummary).rentabilidadePct >= 0 ? "+" : ""}${(data.investments as InvestmentSummary).rentabilidadePct.toFixed(1)}%`}
+                  hint={fmtBRL((data.investments as InvestmentSummary).totalRentabilidade)}
+                  tone={
+                    (data.investments as InvestmentSummary).totalRentabilidade < 0 ? "neg" : "pos"
+                  }
+                />
+                <InvStat
+                  label="Aportado total"
+                  value={fmtBRL((data.investments as InvestmentSummary).totalAportado)}
+                  hint={`+ ${fmtBRL((data.investments as InvestmentSummary).totalProventos)} proventos`}
+                />
+              </div>
+
+              <div
+                className="grid mb-[var(--gap)]"
+                style={{
+                  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.4fr)",
+                  gap: "var(--gap)",
+                }}
+              >
+                <Card>
+                  <CardHead>
+                    <div>
+                      <CardTitle>Alocação por tipo</CardTitle>
+                      <CardSub>Distribuição do patrimônio</CardSub>
+                    </div>
+                  </CardHead>
+                  {(data.investments as InvestmentSummary).allocationByType.length === 0 ? (
+                    <div className="h-[200px] grid place-items-center text-sm" style={{ color: "var(--muted)" }}>
+                      Sem ativos.
+                    </div>
+                  ) : (
+                    <Donut
+                      data={(data.investments as InvestmentSummary).allocationByType.map((a) => ({
+                        name: investmentTypeMeta(a.type).label,
+                        value: a.value,
+                        color: investmentTypeMeta(a.type).color,
+                      }))}
+                    />
+                  )}
+                </Card>
+
+                <Card>
+                  <CardHead>
+                    <div>
+                      <CardTitle>Evolução do patrimônio</CardTitle>
+                      <CardSub>Últimos 12 meses</CardSub>
+                    </div>
+                  </CardHead>
+                  {(data.investments as InvestmentSummary).evolution.length === 0 ? (
+                    <div className="h-[200px] grid place-items-center text-sm" style={{ color: "var(--muted)" }}>
+                      Sem dados.
+                    </div>
+                  ) : (
+                    <LineSeries
+                      data={(data.investments as InvestmentSummary).evolution}
+                      label="Patrimônio"
+                    />
+                  )}
+                </Card>
+              </div>
+            </>
+          )}
 
           <div className="flex items-center justify-between mb-4">
             <h2
@@ -599,6 +694,46 @@ export default function Dashboard() {
           </form>
         </Modal>
       )}
+    </div>
+  );
+}
+
+function InvStat({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "pos" | "neg";
+}) {
+  return (
+    <div className="card" style={{ padding: 18 }}>
+      <div
+        style={{
+          fontSize: 10.5,
+          color: "var(--muted)",
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          fontWeight: 600,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        className="font-display num"
+        style={{
+          fontSize: 24,
+          marginTop: 8,
+          fontWeight: 600,
+          color: tone === "neg" ? "var(--neg)" : "var(--fg)",
+        }}
+      >
+        {value}
+      </div>
+      {hint && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>{hint}</div>}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   SignOut,
   List,
   X,
+  Bank,
   type Icon as IconType,
 } from "@phosphor-icons/react";
 import { useAuth } from "../context/AuthContext";
@@ -28,6 +29,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: SquaresFour, group: "main" },
   { href: "/rendas", label: "Rendas", icon: ArrowUp, group: "movimentos" },
   { href: "/despesas", label: "Despesas", icon: ArrowDown, group: "movimentos" },
+  { href: "/investimentos", label: "Investimentos", icon: Bank, group: "movimentos" },
   { href: "/categorias", label: "Categorias", icon: Tag, group: "config" },
   { href: "/perfil", label: "Perfil", icon: User, group: "config" },
   { href: "/ajustes", label: "Ajustes", icon: Sliders, group: "config" },

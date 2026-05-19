@@ -19,6 +19,11 @@ export const API_ENDPOINTS = {
   GOAL: "/goal",
   FIXED_INCOMES: "/fixed-incomes",
   FIXED_EXPENSES: "/fixed-expenses",
+  INVESTMENTS: {
+    BASE: "/investments",
+    SUMMARY: "/investments/summary",
+    TRANSACTIONS: "/investments/transactions",
+  },
 } as const;
 
 export const authenticatedRequest = async <T = any>(
