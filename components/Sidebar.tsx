@@ -2,18 +2,39 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, ArrowDownCircle, ArrowUpCircle, Tags, User, LogOut, Menu, X, Repeat } from "lucide-react";
+import {
+  SquaresFour,
+  ArrowUp,
+  ArrowDown,
+  Repeat,
+  Tag,
+  Target,
+  User,
+  Sliders,
+  SignOut,
+  List,
+  X,
+  type Icon as IconType,
+} from "@phosphor-icons/react";
 import { useAuth } from "../context/AuthContext";
-import ThemeToggle from "./ThemeToggle";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/rendas", label: "Rendas", icon: ArrowUpCircle },
-  { href: "/rendas/fixas", label: "Rendas fixas", icon: Repeat },
-  { href: "/despesas", label: "Despesas", icon: ArrowDownCircle },
-  { href: "/despesas/fixas", label: "Despesas fixas", icon: Repeat },
-  { href: "/categorias", label: "Categorias", icon: Tags },
-  { href: "/perfil", label: "Perfil", icon: User },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: IconType;
+  group: "main" | "movimentos" | "config";
+  badge?: string;
+}
+
+const NAV: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: SquaresFour, group: "main" },
+  { href: "/rendas", label: "Rendas", icon: ArrowUp, group: "movimentos" },
+  { href: "/rendas/fixas", label: "Rendas fixas", icon: Repeat, group: "movimentos" },
+  { href: "/despesas", label: "Despesas", icon: ArrowDown, group: "movimentos" },
+  { href: "/despesas/fixas", label: "Despesas fixas", icon: Repeat, group: "movimentos" },
+  { href: "/categorias", label: "Categorias", icon: Tag, group: "config" },
+  { href: "/perfil", label: "Perfil", icon: User, group: "config" },
+  { href: "/ajustes", label: "Ajustes", icon: Sliders, group: "config" },
 ];
 
 export default function Sidebar() {
@@ -22,94 +43,227 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   if (!user) return null;
-  if (pathname === "/login" || pathname === "/esqueci-senha" || pathname === "/trocar-senha") return null;
+  if (["/login", "/esqueci-senha", "/trocar-senha"].includes(pathname)) return null;
 
-  const NavList = ({ onClick }: { onClick?: () => void }) => (
-    <nav className="flex flex-col gap-0.5 px-2 mt-2">
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const active = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onClick}
-            className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
-              active
-                ? "bg-secondary text-foreground"
-                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-            }`}
+  const initial = (user.name?.[0] || user.email[0] || "?").toUpperCase();
+
+  const renderItem = (item: NavItem, onClick?: () => void) => {
+    const Icon = item.icon;
+    const active =
+      pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={onClick}
+        className={`sb-item${active ? " is-active" : ""}`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "8px 10px",
+          borderRadius: 8,
+          fontSize: 13,
+          color: active ? "var(--fg)" : "var(--fg-soft)",
+          fontWeight: 500,
+          position: "relative",
+          background: active ? "var(--surface)" : "transparent",
+          transition: "background 0.15s, color 0.15s",
+        }}
+      >
+        {active && (
+          <span
+            aria-hidden
+            style={{
+              content: '""',
+              position: "absolute",
+              left: -4,
+              top: 8,
+              bottom: 8,
+              width: 2.5,
+              background: "var(--accent)",
+              borderRadius: 2,
+            }}
+          />
+        )}
+        <Icon size={16} weight="regular" style={{ opacity: 0.85, flexShrink: 0 }} />
+        <span>{item.label}</span>
+        {item.badge && (
+          <span
+            className="ml-auto"
+            style={{
+              fontSize: 10.5,
+              padding: "1px 6px",
+              borderRadius: 999,
+              background: "var(--accent-soft)",
+              color: "var(--accent-ink)",
+              fontWeight: 600,
+            }}
           >
-            <Icon className="w-4 h-4" />
-            <span>{item.label}</span>
-          </Link>
-        );
-      })}
-    </nav>
+            {item.badge}
+          </span>
+        )}
+      </Link>
+    );
+  };
+
+  const groups = ["main", "movimentos", "config"] as const;
+  const groupLabels: Record<typeof groups[number], string> = {
+    main: "Visão geral",
+    movimentos: "Movimentos",
+    config: "Configurações",
+  };
+
+  const Content = ({ onClick }: { onClick?: () => void }) => (
+    <>
+      <div className="flex items-center gap-2.5" style={{ padding: "6px 8px 18px" }}>
+        <div
+          className="grid place-items-center"
+          style={{
+            width: 30,
+            height: 30,
+            background: "var(--fg)",
+            color: "var(--bg)",
+            borderRadius: 8,
+            fontFamily: "var(--font-display-stack)",
+            fontWeight: 700,
+            fontSize: 16,
+            letterSpacing: "-0.05em",
+          }}
+        >
+          G
+        </div>
+        <div className="flex flex-col" style={{ lineHeight: 1.1 }}>
+          <b style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: "-0.01em" }}>Gestão</b>
+          <span style={{ fontSize: 11, color: "var(--muted)" }}>finanças pessoais</span>
+        </div>
+      </div>
+
+      {groups.map((g) => (
+        <div key={g} style={{ marginTop: 14 }}>
+          <div
+            style={{
+              fontSize: 10.5,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--muted)",
+              padding: "0 10px 8px",
+            }}
+          >
+            {groupLabels[g]}
+          </div>
+          <nav className="flex flex-col gap-px">{NAV.filter((n) => n.group === g).map((n) => renderItem(n, onClick))}</nav>
+        </div>
+      ))}
+
+      <div
+        className="mt-auto pt-3.5 border-t"
+        style={{ borderColor: "var(--border-soft)" }}
+      >
+        <div className="flex items-center gap-2.5" style={{ padding: "6px 8px" }}>
+          <div
+            className="grid place-items-center"
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 999,
+              background: "var(--accent-soft)",
+              color: "var(--accent-ink)",
+              fontWeight: 600,
+              fontSize: 12,
+            }}
+          >
+            {initial}
+          </div>
+          <div className="flex-1 min-w-0" style={{ lineHeight: 1.2 }}>
+            <b style={{ fontSize: 12.5, fontWeight: 600, display: "block" }} className="truncate">
+              {user.name}
+            </b>
+            <span
+              style={{ fontSize: 11, color: "var(--muted)", display: "block" }}
+              className="truncate"
+            >
+              {user.email}
+            </span>
+          </div>
+          <button onClick={logout} aria-label="Sair" className="btn btn-ghost btn-icon btn-sm">
+            <SignOut size={14} />
+          </button>
+        </div>
+      </div>
+    </>
   );
 
   return (
     <>
       {/* Mobile top bar */}
-      <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between h-14 px-4 border-b bg-background">
+      <header
+        className="lg:hidden sticky top-0 z-40 flex items-center justify-between"
+        style={{
+          height: 56,
+          padding: "0 16px",
+          borderBottom: "1px solid var(--border-soft)",
+          background: "var(--bg)",
+        }}
+      >
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
-            <span className="text-background text-xs font-semibold">G</span>
-          </div>
-          <span className="text-sm font-medium">Gastos</span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <button
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label="Menu"
-            className="p-2 rounded-md hover:bg-secondary"
+          <div
+            className="grid place-items-center"
+            style={{
+              width: 28,
+              height: 28,
+              background: "var(--fg)",
+              color: "var(--bg)",
+              borderRadius: 8,
+              fontFamily: "var(--font-display-stack)",
+              fontWeight: 700,
+              fontSize: 15,
+            }}
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
+            G
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Gestão</span>
+        </Link>
+        <button
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-label="Menu"
+          className="btn btn-ghost btn-icon"
+        >
+          {mobileOpen ? <X size={18} /> : <List size={18} />}
+        </button>
       </header>
 
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-30 bg-background/95 backdrop-blur-sm pt-14">
-          <NavList onClick={() => setMobileOpen(false)} />
-          <div className="px-4 pt-6 mt-2 border-t">
-            <p className="text-xs text-muted-foreground mb-2">{user.email}</p>
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 text-sm text-destructive hover:underline"
-            >
-              <LogOut className="w-4 h-4" /> Sair
-            </button>
-          </div>
+        <div
+          className="lg:hidden fixed inset-x-0 z-30"
+          style={{
+            top: 56,
+            bottom: 0,
+            background: "var(--bg-elev)",
+            padding: "14px",
+            display: "flex",
+            flexDirection: "column",
+            overflowY: "auto",
+          }}
+        >
+          <Content onClick={() => setMobileOpen(false)} />
         </div>
       )}
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r bg-background sticky top-0 h-screen">
-        <div className="h-14 px-4 flex items-center gap-2 border-b">
-          <div className="w-7 h-7 rounded-md bg-foreground flex items-center justify-center">
-            <span className="text-background text-xs font-semibold">G</span>
-          </div>
-          <span className="text-sm font-medium">Gestão de Gastos</span>
-        </div>
-        <NavList />
-        <div className="mt-auto p-3 border-t flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-medium truncate">{user.name}</p>
-            <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
-          </div>
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <button
-              onClick={logout}
-              aria-label="Sair"
-              className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-secondary"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+      <aside
+        className="hidden lg:flex flex-col shrink-0"
+        style={{
+          width: 240,
+          background: "var(--bg-elev)",
+          borderRight: "1px solid var(--border)",
+          padding: "18px 14px",
+          position: "sticky",
+          top: 0,
+          height: "100vh",
+        }}
+      >
+        <Content />
       </aside>
     </>
   );

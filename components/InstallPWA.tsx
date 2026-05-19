@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Download, X } from "lucide-react";
+import { DownloadSimple as Download, X } from "@phosphor-icons/react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -45,7 +45,7 @@ export default function InstallPWA() {
   return (
     <div className="fixed bottom-4 right-4 z-50 max-w-xs rounded-lg border bg-card text-card-foreground shadow-lg p-3 flex items-start gap-3">
       <div className="w-8 h-8 rounded-md bg-foreground flex items-center justify-center shrink-0">
-        <Download className="w-4 h-4 text-background" />
+        <Download size={16} color="var(--bg)" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium">Instalar app</p>
@@ -60,7 +60,7 @@ export default function InstallPWA() {
         </div>
       </div>
       <button onClick={dismiss} aria-label="Fechar" className="text-muted-foreground hover:text-foreground">
-        <X className="w-4 h-4" />
+        <X size={16} />
       </button>
     </div>
   );

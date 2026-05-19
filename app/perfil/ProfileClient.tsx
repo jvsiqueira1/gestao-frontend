@@ -29,50 +29,101 @@ export default function ProfileClient() {
     }
   };
 
-  return (
-    <div className="space-y-8 max-w-2xl">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Perfil</h1>
-        <p className="text-sm text-muted-foreground mt-1">Suas informações de conta.</p>
-      </header>
+  const initial = (user.name?.[0] || user.email[0] || "?").toUpperCase();
+  const memberSince = user.created_at ? new Date(user.created_at).toLocaleDateString("pt-BR") : null;
 
-      <section className="rounded-lg border bg-card p-5">
-        <div className="flex items-center gap-4 mb-5">
-          <div className="w-12 h-12 rounded-full bg-foreground text-background grid place-items-center text-base font-semibold">
-            {user.name.charAt(0).toUpperCase()}
+  return (
+    <div>
+      <div className="page-head">
+        <div>
+          <div className="page-eyebrow">Configurações</div>
+          <h1 className="page-title">Perfil</h1>
+          <p className="page-sub">Suas informações de conta.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-[var(--gap)]" style={{ gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)" }}>
+        <div className="card">
+          <div className="flex items-center gap-4 mb-6">
+            <div
+              className="grid place-items-center font-display"
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 999,
+                background: "var(--accent-soft)",
+                color: "var(--accent-ink)",
+                fontSize: 22,
+                fontWeight: 600,
+              }}
+            >
+              {initial}
+            </div>
+            <div>
+              <h2
+                className="font-display"
+                style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em" }}
+              >
+                {user.name}
+              </h2>
+              <p style={{ color: "var(--muted)", fontSize: 13 }}>{user.email}</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-base font-medium truncate">{user.name}</p>
-            <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-          </div>
+
+          <dl
+            className="grid gap-4"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}
+          >
+            <Field label="Nome" value={user.name} />
+            <Field label="Email" value={user.email} />
+            {memberSince && <Field label="Membro desde" value={memberSince} />}
+            <Field label="ID" value={`#${user.id}`} />
+          </dl>
         </div>
 
-        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Nome</dt>
-            <dd>{user.name}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Email</dt>
-            <dd>{user.email}</dd>
-          </div>
-          {user.created_at && (
-            <div>
-              <dt className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Membro desde</dt>
-              <dd>{new Date(user.created_at).toLocaleDateString("pt-BR")}</dd>
-            </div>
+        <div className="card">
+          <h3
+            className="font-display mb-2"
+            style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" }}
+          >
+            Segurança
+          </h3>
+          <p style={{ fontSize: 12, color: "var(--muted)" }} className="mb-4">
+            Envie um link de redefinição de senha para o seu e-mail.
+          </p>
+          <Button onClick={requestPasswordReset} loading={resetting} variant="outline" size="sm">
+            Solicitar troca de senha
+          </Button>
+          {resetMsg && (
+            <p
+              className="text-xs mt-3 break-all"
+              style={{ color: "var(--fg-soft)" }}
+            >
+              {resetMsg}
+            </p>
           )}
-        </dl>
-      </section>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      <section className="rounded-lg border bg-card p-5">
-        <h2 className="text-sm font-semibold mb-2">Senha</h2>
-        <p className="text-xs text-muted-foreground mb-4">Envie um link de redefinição para o seu e-mail.</p>
-        <Button onClick={requestPasswordReset} loading={resetting} variant="secondary">
-          Solicitar troca de senha
-        </Button>
-        {resetMsg && <p className="text-xs text-muted-foreground mt-3 break-all">{resetMsg}</p>}
-      </section>
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt
+        style={{
+          fontSize: 10.5,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: "var(--muted)",
+          fontWeight: 600,
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </dt>
+      <dd style={{ fontSize: 14, color: "var(--fg)" }}>{value}</dd>
     </div>
   );
 }

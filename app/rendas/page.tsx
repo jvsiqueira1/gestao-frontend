@@ -1,32 +1,37 @@
 "use client";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { format as formatDateFns } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  CaretLeft,
+  CaretRight,
+  Plus,
+  PencilSimple,
+  Trash,
+  Repeat,
+  MagnifyingGlass,
+} from "@phosphor-icons/react";
+import { useAuth } from "../../context/AuthContext";
+import { apiUrl, API_ENDPOINTS } from "../../lib/api";
+import { fmtBRL, fmtDate, MONTH_NAMES_FULL } from "../../lib/format";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
-import { useAuth } from "../../context/AuthContext";
-import { API_ENDPOINTS, apiUrl } from "../../lib/api";
+import Modal from "../../components/ui/Modal";
+import Segmented from "../../components/ui/Segmented";
+import Toggle from "../../components/ui/Toggle";
+import Pill from "../../components/ui/Pill";
+import CatChip, { categoryColor } from "../../components/ui/CatChip";
 
 interface Income {
-  id: number;
+  id: number | string;
   description: string;
   value: number;
   date: string;
-  category_id: number;
-  category_name: string;
-  created_at: string;
+  category_id: number | null;
+  category_name?: string;
   isFixed?: boolean;
+  pending?: boolean;
   recurrenceType?: string;
   startDate?: string;
   endDate?: string;
-  pending?: boolean; // Adicionado para indicar receitas pendentes
 }
 
 interface Category {
@@ -35,52 +40,48 @@ interface Category {
   type: string;
 }
 
-export default function IncomePage() {
+type FilterMode = "all" | "fixed";
+
+const today = () => new Date().toISOString().split("T")[0];
+
+export default function RendasPage() {
   const { token } = useAuth();
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [monthLoading, setMonthLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState<number | null>(null);
-  const [editing, setEditing] = useState<number | null>(null);
-  const [registeringPending, setRegisteringPending] = useState(false);
+  const [filter, setFilter] = useState<FilterMode>("all");
+  const [search, setSearch] = useState("");
+
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     description: "",
     value: "",
-    date: new Date().toISOString().split("T")[0],
+    date: today(),
     category_id: "",
     isFixed: false,
     recurrenceType: "monthly",
-    startDate: new Date().toISOString().split("T")[0],
+    startDate: today(),
     endDate: "",
   });
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<number>(
-    new Date().getMonth() + 1
-  );
-  const [selectedYear, setSelectedYear] = useState<number>(
-    new Date().getFullYear()
-  );
-  // Remover estados e funções relacionados a editPending e editPendingData
+  const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
 
   useEffect(() => {
     if (!token) return;
-    fetchData();
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    setMonthLoading(true);
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, selectedMonth, selectedYear]);
+  }, [token, month, year]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const params = `?month=${selectedMonth}&year=${selectedYear}`;
-      const [incomesRes, categoriesRes] = await Promise.all([
+      const params = `?month=${month}&year=${year}`;
+      const [iRes, cRes] = await Promise.all([
         fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME) + params, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -88,791 +89,445 @@ export default function IncomePage() {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
-
-      const [incomesData, categoriesData] = await Promise.all([
-        incomesRes.json(),
-        categoriesRes.json(),
-      ]);
-
-      // Verificar se os dados são arrays antes de usar
-      const incomesArray = Array.isArray(incomesData) ? incomesData : [];
-      const categoriesArray = Array.isArray(categoriesData)
-        ? categoriesData
-        : [];
-
-      setIncomes(incomesArray);
-      setCategories(
-        categoriesArray.filter((cat: Category) => cat.type === "income")
-      );
-    } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+      const [iData, cData] = await Promise.all([iRes.json(), cRes.json()]);
+      setIncomes(Array.isArray(iData) ? iData : []);
+      setCategories(Array.isArray(cData) ? cData.filter((c: Category) => c.type === "income") : []);
     } finally {
       setLoading(false);
-      setMonthLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const goPrev = () => {
+    if (month === 1) {
+      setMonth(12);
+      setYear(year - 1);
+    } else setMonth(month - 1);
+  };
+  const goNext = () => {
+    if (month === 12) {
+      setMonth(1);
+      setYear(year + 1);
+    } else setMonth(month + 1);
+  };
+
+  const filtered = incomes
+    .filter((e) => (filter === "fixed" ? e.isFixed : true))
+    .filter((e) =>
+      search.trim() ? e.description.toLowerCase().includes(search.trim().toLowerCase()) : true
+    );
+
+  const total = incomes.filter((e) => !e.pending).reduce((s, e) => s + parseFloat(String(e.value)), 0);
+  const fixedTotal = incomes.filter((e) => e.isFixed && !e.pending).reduce((s, e) => s + parseFloat(String(e.value)), 0);
+
+  const resetForm = () => {
+    setFormData({
+      description: "",
+      value: "",
+      date: today(),
+      category_id: "",
+      isFixed: false,
+      recurrenceType: "monthly",
+      startDate: today(),
+      endDate: "",
+    });
+    setEditingId(null);
+  };
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       const url = editingId
         ? `${apiUrl(API_ENDPOINTS.FINANCE.INCOME)}/${editingId}`
         : apiUrl(API_ENDPOINTS.FINANCE.INCOME);
-
       const method = editingId ? "PUT" : "POST";
-
-      const requestBody = {
+      const body = {
         description: formData.description,
         value: parseFloat(formData.value),
         date: formData.date,
-        category_id: formData.category_id
-          ? parseInt(formData.category_id)
-          : null,
+        category_id: formData.category_id ? parseInt(formData.category_id) : null,
         isFixed: formData.isFixed,
-        recurrenceType: formData.recurrenceType,
-        startDate: formData.startDate,
-        endDate: formData.endDate || null,
+        recurrenceType: formData.isFixed ? formData.recurrenceType : null,
+        startDate: formData.isFixed ? formData.startDate : null,
+        endDate: formData.isFixed && formData.endDate ? formData.endDate : null,
       };
       const res = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestBody),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
       });
-
-      if (res.ok) {
-        setFormData({
-          description: "",
-          value: "",
-          date: new Date().toISOString().split("T")[0],
-          category_id: "",
-          isFixed: false,
-          recurrenceType: "monthly",
-          startDate: new Date().toISOString().split("T")[0],
-          endDate: "",
-        });
-        setShowForm(false);
-        setEditingId(null);
-        fetchData();
-      } else {
-        const errorData = await res.json();
-        alert(
-          `Erro ao salvar receita: ${errorData.error || "Erro desconhecido"}`
-        );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Erro ao salvar.");
+        return;
       }
-    } catch (error) {
-      console.error("Erro ao salvar receita:", error);
-      alert("Erro ao salvar receita. Verifique o console para mais detalhes.");
+      setShowForm(false);
+      resetForm();
+      fetchData();
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleEdit = (income: Income) => {
-    setEditing(income.id);
-    // Função para formatar data para YYYY-MM-DD
-    const formatDateForInput = (dateString: string | undefined) => {
-      if (!dateString) return new Date().toISOString().split("T")[0];
-      try {
-        return new Date(dateString).toISOString().split("T")[0];
-      } catch (error) {
-        console.error("Erro ao formatar data:", dateString, error);
-        return new Date().toISOString().split("T")[0];
-      }
-    };
-
-    setFormData({
-      description: income.description,
-      value: income.value.toString(),
-      date: formatDateForInput(income.date),
-      category_id: income.category_id.toString(),
-      isFixed: income.isFixed || false,
-      recurrenceType: income.recurrenceType || "monthly",
-      startDate: income.startDate ? formatDateForInput(income.startDate) : "",
-      endDate: income.endDate ? formatDateForInput(income.endDate) : "",
-    });
-    setEditingId(income.id);
-    setShowForm(true);
-    setEditing(null);
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir esta receita?")) return;
-
+  const remove = async (id: number) => {
+    if (!confirm("Excluir esta renda?")) return;
     setDeleting(id);
     try {
-      const res = await fetch(`${apiUrl(API_ENDPOINTS.FINANCE.INCOME)}/${id}`, {
+      await fetch(`${apiUrl(API_ENDPOINTS.FINANCE.INCOME)}/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (res.ok) {
-        fetchData();
-      }
-    } catch (error) {
-      console.error("Erro ao excluir receita:", error);
+      fetchData();
     } finally {
       setDeleting(null);
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
+  const openEdit = (e: Income) => {
+    setEditingId(typeof e.id === "number" ? e.id : null);
+    setFormData({
+      description: e.description,
+      value: String(e.value),
+      date: new Date(e.date).toISOString().split("T")[0],
+      category_id: e.category_id ? String(e.category_id) : "",
+      isFixed: !!e.isFixed,
+      recurrenceType: e.recurrenceType || "monthly",
+      startDate: e.startDate ? new Date(e.startDate).toISOString().split("T")[0] : today(),
+      endDate: e.endDate ? new Date(e.endDate).toISOString().split("T")[0] : "",
+    });
+    setShowForm(true);
   };
 
-  const formatDate = (dateString: string) => {
-    // Tratar datas UTC corretamente para evitar problemas de timezone
-    const date = new Date(dateString);
-    // Usar UTC para evitar conversão de timezone
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(date.getUTCDate()).padStart(2, "0");
-    return `${day}/${month}/${year}`;
-  };
-
-  function parseLocalDate(dateStr: string): Date | null {
-    if (!dateStr) return null;
-    const [year, month, day] = dateStr.split("-").map(Number);
-    return new Date(year, month - 1, day);
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Carregando receitas..." />
-      </div>
-    );
-  }
-
-  // Nova função para registrar pendente diretamente
-  const handleRegisterPending = async (income: Income) => {
-    setRegisteringPending(true);
-    try {
-      // Para itens pendentes, extrair o ID real da receita fixa
-      let fixedIncomeId = null;
-      const incomeId = String(income.id);
-      if (incomeId.startsWith("pending-")) {
-        // Formato: pending-{id}-{month}-{year}
-        const parts = incomeId.split("-");
-        if (parts.length >= 3) {
-          fixedIncomeId = parseInt(parts[1]);
-        }
-      } else if (typeof income.id === "number") {
-        fixedIncomeId = income.id;
-      }
-
-      const res = await fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          description: income.description,
-          value: income.value,
-          date: income.date,
-          category_id: income.category_id,
-          isFixed: false,
-          fixed_income_id: fixedIncomeId,
-        }),
-      });
-      if (res.ok) {
-        fetchData();
-      } else {
-        const errorData = await res.json();
-        alert(
-          `Erro ao registrar receita: ${errorData.error || "Erro desconhecido"}`
-        );
-      }
-    } catch (error) {
-      console.error("Erro ao registrar receita pendente:", error);
-      alert(
-        "Erro ao registrar receita. Verifique o console para mais detalhes."
-      );
-    } finally {
-      // Pequeno delay para evitar bug visual
-      setTimeout(() => {
-        setRegisteringPending(false);
-      }, 500);
-    }
-  };
-
-  // UI do filtro de mês/ano (antes da tabela/lista)
-  const months = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
-  ];
-  const years = Array.from(
-    { length: 10 },
-    (_, i) => new Date().getFullYear() - 5 + i
-  );
-
-  // Antes do return, defina o filtro de mês/ano como um componente
-  const MonthYearFilter = (
-    <div className="flex flex-wrap gap-2 items-center mb-6 justify-center">
-      <button
-        onClick={() => {
-          if (selectedMonth === 1) {
-            setSelectedMonth(12);
-            setSelectedYear(selectedYear - 1);
-          } else {
-            setSelectedMonth(selectedMonth - 1);
-          }
-        }}
-        className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-        aria-label="Mês anterior"
-      >
-        &lt;
-      </button>
-      <select
-        value={selectedMonth}
-        onChange={(e) => setSelectedMonth(Number(e.target.value))}
-        className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-        aria-label="Selecionar mês"
-      >
-        {months.map((m, idx) => (
-          <option key={m} value={idx + 1}>
-            {m}
-          </option>
-        ))}
-      </select>
-      <select
-        value={selectedYear}
-        onChange={(e) => setSelectedYear(Number(e.target.value))}
-        className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-        aria-label="Selecionar ano"
-      >
-        {years.map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
-      <button
-        onClick={() => {
-          if (selectedMonth === 12) {
-            setSelectedMonth(1);
-            setSelectedYear(selectedYear + 1);
-          } else {
-            setSelectedMonth(selectedMonth + 1);
-          }
-        }}
-        className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
-        aria-label="Próximo mês"
-      >
-        &gt;
-      </button>
-      <span className="font-semibold text-gray-900 dark:text-white ml-2">
-        {months[selectedMonth - 1]} de {selectedYear}
-      </span>
-    </div>
-  );
-
-  // Remover todo o JSX solto do corpo do componente.
-  // No final do componente, coloque:
   return (
-    <div className="bg-background text-foreground min-h-screen p-4 sm:p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-            Receitas
-          </h1>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button onClick={() => (window.location.href = "/rendas/fixas")}>
-              <Settings className="inline w-4 h-4 mr-1 align-text-bottom" />{" "}
-              Rendas Fixas
-            </Button>
-            <Button
-              onClick={() => {
-                setFormData((form) => ({
-                  ...form,
-                  startDate: form.date,
-                }));
-                setShowForm(true);
-              }}
-            >
-              + Nova Receita
-            </Button>
+    <div>
+      <div className="page-head">
+        <div>
+          <div className="page-eyebrow">Movimentos</div>
+          <h1 className="page-title">Rendas</h1>
+          <p className="page-sub">
+            {MONTH_NAMES_FULL[month - 1]} de {year} · {incomes.length} lançamentos · {fmtBRL(total)} no total
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className="flex items-center"
+            style={{ background: "var(--bg-elev)", border: "1px solid var(--border)", borderRadius: 8 }}
+          >
+            <button className="btn btn-ghost btn-icon" onClick={goPrev} aria-label="Anterior">
+              <CaretLeft size={14} />
+            </button>
+            <span className="num" style={{ padding: "0 6px", fontSize: 12.5, fontWeight: 500 }}>
+              {MONTH_NAMES_FULL[month - 1]} {year}
+            </span>
+            <button className="btn btn-ghost btn-icon" onClick={goNext} aria-label="Próximo">
+              <CaretRight size={14} />
+            </button>
+          </div>
+          <a href="/rendas/fixas" className="btn btn-outline">
+            <Repeat size={14} /> Fixas
+          </a>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+          >
+            <Plus size={14} /> Nova renda
+          </button>
+        </div>
+      </div>
+
+      <div
+        className="grid mb-[var(--gap)]"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}
+      >
+        <Stat label="Total no mês" value={fmtBRL(total)} hint={`${incomes.length} lançamentos`} />
+        <Stat label="Rendas fixas" value={fmtBRL(fixedTotal)} hint={`${incomes.filter((i) => i.isFixed).length} recorrentes`} />
+        <Stat label="Rendas variáveis" value={fmtBRL(total - fixedTotal)} hint={`${incomes.filter((i) => !i.isFixed).length} avulsas`} />
+      </div>
+
+      <div className="tbl-wrap">
+        <div className="tbl-head">
+          <Segmented
+            value={filter}
+            onChange={setFilter}
+            options={[
+              {
+                value: "all",
+                label: (
+                  <>
+                    Todas <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>{incomes.length}</span>
+                  </>
+                ),
+              },
+              {
+                value: "fixed",
+                label: (
+                  <>
+                    Fixas{" "}
+                    <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>
+                      {incomes.filter((i) => i.isFixed).length}
+                    </span>
+                  </>
+                ),
+              },
+            ]}
+          />
+          <div
+            className="flex items-center gap-2"
+            style={{
+              height: 30,
+              padding: "0 10px",
+              background: "var(--surface)",
+              borderRadius: 8,
+              border: "1px solid var(--border-soft)",
+              width: 220,
+            }}
+          >
+            <MagnifyingGlass size={14} style={{ color: "var(--muted)" }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar…"
+              className="w-full bg-transparent outline-none"
+              style={{ fontSize: 12.5 }}
+            />
           </div>
         </div>
 
-        {/* Filtro de mês/ano */}
-        <div className="flex flex-wrap gap-2 items-center mb-4 justify-center">
-          <button
-            onClick={() => {
-              if (selectedMonth === 1) {
-                setSelectedMonth(12);
-                setSelectedYear(selectedYear - 1);
-              } else {
-                setSelectedMonth(selectedMonth - 1);
-              }
-            }}
-            disabled={monthLoading}
-            className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Mês anterior"
-          >
-            &lt;
-          </button>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            disabled={monthLoading}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Selecionar mês"
-          >
-            {months.map((m, idx) => (
-              <option key={m} value={idx + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            disabled={monthLoading}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Selecionar ano"
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => {
-              if (selectedMonth === 12) {
-                setSelectedMonth(1);
-                setSelectedYear(selectedYear + 1);
-              } else {
-                setSelectedMonth(selectedMonth + 1);
-              }
-            }}
-            disabled={monthLoading}
-            className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Próximo mês"
-          >
-            &gt;
-          </button>
-          <span className="font-semibold text-gray-900 dark:text-white ml-2">
-            {months[selectedMonth - 1]} de {selectedYear}
-          </span>
-        </div>
-
-        {/* Formulário de receita */}
-        {showForm && (
-          <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-6 mb-8">
-            <h2 className="text-xl font-semibold text-card-foreground">
-              {editingId ? "Editar Receita" : "Nova Receita"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Descrição
-                </label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Valor
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.value}
-                  onChange={(e) =>
-                    setFormData({ ...formData, value: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Categoria
-                </label>
-                <select
-                  value={formData.category_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category_id: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  required
-                >
-                  <option value="">Selecione uma categoria</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Data
-                </label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-left focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                    >
-                      {formData.date
-                        ? formatDateFns(
-                            parseLocalDate(formData.date) || new Date(),
-                            "dd/MM/yyyy",
-                            { locale: ptBR }
-                          )
-                        : "Selecione uma data"}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={parseLocalDate(formData.date) || undefined}
-                      onSelect={(date) => {
-                        if (date) {
-                          const localDate = formatDateFns(date, "yyyy-MM-dd");
-                          setFormData((form) => ({
-                            ...form,
-                            date: localDate,
-                            startDate: form.isFixed
-                              ? localDate
-                              : form.startDate,
-                          }));
-                        }
-                      }}
-                      locale={ptBR}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <label className="inline-flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.isFixed}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setFormData((form) => ({
-                        ...form,
-                        isFixed: checked,
-                        startDate: checked ? form.date : form.startDate,
-                      }));
-                    }}
-                    className="form-checkbox h-5 w-5 text-cyan-600"
-                  />
-                  <span className="ml-2 text-gray-700 dark:text-gray-300">
-                    Receita fixa
-                  </span>
-                </label>
-              </div>
-              {formData.isFixed && (
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Recorrência
-                    </label>
-                    <select
-                      value={formData.recurrenceType}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          recurrenceType: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="monthly">Mensal</option>
-                      <option value="yearly">Anual</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Início da recorrência
-                    </label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-left focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                        >
-                          {formData.startDate
-                            ? formatDateFns(
-                                parseLocalDate(formData.startDate) ||
-                                  new Date(),
-                                "dd/MM/yyyy",
-                                { locale: ptBR }
-                              )
-                            : "Selecione uma data"}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={
-                            parseLocalDate(formData.startDate) || undefined
-                          }
-                          onSelect={(date) => {
-                            if (date) {
-                              const localDate = formatDateFns(
-                                date,
-                                "yyyy-MM-dd"
-                              );
-                              setFormData((form) => ({
-                                ...form,
-                                startDate: localDate,
-                              }));
-                            }
-                          }}
-                          locale={ptBR}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Fim da recorrência (opcional)
-                    </label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-left focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
-                        >
-                          {formData.endDate
-                            ? formatDateFns(
-                                parseLocalDate(formData.endDate) || new Date(),
-                                "dd/MM/yyyy",
-                                { locale: ptBR }
-                              )
-                            : "Selecione uma data"}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={
-                            parseLocalDate(formData.endDate) || undefined
-                          }
-                          onSelect={(date) => {
-                            if (date) {
-                              const localDate = formatDateFns(
-                                date,
-                                "yyyy-MM-dd"
-                              );
-                              setFormData((form) => ({
-                                ...form,
-                                endDate: localDate,
-                              }));
-                            }
-                          }}
-                          locale={ptBR}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-3">
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? (
-                    <div className="flex items-center gap-2">
-                      <LoadingSpinner size="sm" text="" />
-                      {editingId ? "Atualizando..." : "Salvando..."}
-                    </div>
-                  ) : editingId ? (
-                    "Atualizar"
-                  ) : (
-                    "Salvar"
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={submitting}
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditingId(null);
-                    setFormData({
-                      description: "",
-                      value: "",
-                      date: new Date().toISOString().split("T")[0],
-                      category_id: "",
-                      isFixed: false,
-                      recurrenceType: "monthly",
-                      startDate: new Date().toISOString().split("T")[0],
-                      endDate: "",
-                    });
-                  }}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </form>
+        {loading ? (
+          <div className="p-12">
+            <LoadingSpinner size="lg" />
           </div>
-        )}
-
-        {/* Aviso de receitas pendentes */}
-        {incomes.some((i) => i.pending) && (
-          <div className="mb-4 p-3 rounded bg-yellow-100 dark:bg-yellow-900 border-l-4 border-yellow-500 text-yellow-800 dark:text-yellow-200 font-semibold">
-            Existem receitas fixas pendentes para este mês. Utilize o botão
-            "Registrar" ao lado de cada uma na tabela abaixo.
-          </div>
-        )}
-
-        {/* Tabela de receitas */}
-        {monthLoading ? (
-          <div className="bg-card text-card-foreground border border-border rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Lista de Receitas
-              </h3>
-            </div>
-            <div className="flex items-center justify-center py-12">
-              <LoadingSpinner size="lg" text="Carregando receitas..." />
-            </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-10 text-center text-sm" style={{ color: "var(--muted)" }}>
+            Nenhuma renda neste filtro.
           </div>
         ) : (
-          <div className="bg-card text-card-foreground border border-border rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Lista de Receitas
-              </h3>
-            </div>
-            <div className="relative">
-              {registeringPending && (
-                <div className="absolute inset-0 bg-white dark:bg-gray-800 flex items-center justify-center z-10">
-                  <LoadingSpinner size="lg" text="Registrando..." />
-                </div>
-              )}
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Descrição
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Valor
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Categoria
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Data
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {incomes.map((income) => (
-                    <tr
-                      key={income.id}
-                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                        income.pending ? "bg-yellow-50 dark:bg-yellow-900" : ""
-                      }`}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {income.description}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {formatCurrency(income.value)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {income.category_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {formatDate(income.date)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
-                          {income.pending ? (
-                            <button
-                              onClick={() => handleRegisterPending(income)}
-                              disabled={registeringPending}
-                              className="text-green-700 hover:text-green-900 font-semibold border border-green-600 rounded px-2 py-1 bg-green-50 hover:bg-green-100 disabled:opacity-50"
-                            >
-                              Registrar
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => handleEdit(income)}
-                                disabled={
-                                  registeringPending ||
-                                  editing === income.id ||
-                                  deleting === income.id
-                                }
-                                className="text-cyan-600 hover:text-cyan-900 disabled:opacity-50"
-                              >
-                                {editing === income.id ? (
-                                  <div className="flex items-center gap-1">
-                                    <LoadingSpinner size="sm" text="" />
-                                    Editando...
-                                  </div>
-                                ) : (
-                                  "Editar"
-                                )}
-                              </button>
-                              <button
-                                onClick={() => handleDelete(income.id)}
-                                disabled={
-                                  registeringPending ||
-                                  editing === income.id ||
-                                  deleting === income.id
-                                }
-                                className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                              >
-                                {deleting === income.id ? (
-                                  <div className="flex items-center gap-1">
-                                    <LoadingSpinner size="sm" text="" />
-                                    Excluindo...
-                                  </div>
-                                ) : (
-                                  "Excluir"
-                                )}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th style={{ width: "40%" }}>Descrição</th>
+                <th>Categoria</th>
+                <th>Data</th>
+                <th style={{ textAlign: "right" }}>Valor</th>
+                <th style={{ width: 100 }}>Status</th>
+                <th style={{ width: 80 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((e) => (
+                <tr key={e.id}>
+                  <td>
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="grid place-items-center"
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 8,
+                          background: "var(--surface)",
+                          color: "var(--fg-soft)",
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          border: "1px solid var(--border-soft)",
+                        }}
+                      >
+                        {(e.description || "?")[0].toUpperCase()}
+                      </span>
+                      <div>
+                        <div style={{ fontWeight: 500 }}>{e.description}</div>
+                        {e.isFixed && (
+                          <div
+                            className="inline-flex items-center gap-1"
+                            style={{
+                              fontSize: 10.5,
+                              color: "var(--muted)",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            <Repeat size={10} /> recorrente · {e.recurrenceType === "yearly" ? "anual" : "mensal"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    {e.category_name && (
+                      <CatChip name={e.category_name} color={categoryColor(e.category_id || e.category_name)} />
+                    )}
+                  </td>
+                  <td style={{ color: "var(--fg-soft)" }}>{fmtDate(e.date)}</td>
+                  <td className="num" style={{ textAlign: "right", color: "var(--pos)", fontWeight: 500 }}>
+                    +{fmtBRL(parseFloat(String(e.value))).replace("R$", "").trim()}
+                  </td>
+                  <td>{e.isFixed ? <Pill tone="info">fixa</Pill> : <Pill>avulsa</Pill>}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button aria-label="Editar" onClick={() => openEdit(e)}>
+                        <PencilSimple size={14} />
+                      </button>
+                      <button
+                        aria-label="Excluir"
+                        onClick={() => typeof e.id === "number" && remove(e.id)}
+                        disabled={deleting === e.id}
+                      >
+                        <Trash size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
+
+      {showForm && (
+        <Modal
+          title={editingId ? "Editar renda" : "Nova renda"}
+          subtitle={`Registre uma renda em ${MONTH_NAMES_FULL[month - 1]} de ${year}.`}
+          onClose={() => {
+            setShowForm(false);
+            resetForm();
+          }}
+        >
+          <form onSubmit={submit} className="grid gap-3.5">
+            <div className="field">
+              <label>Descrição</label>
+              <input
+                className="input"
+                required
+                autoFocus
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Ex: Salário maio"
+              />
+            </div>
+            <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+              <div className="field">
+                <label>Valor</label>
+                <input
+                  className="input input-currency"
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={formData.value}
+                  onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                  placeholder="0,00"
+                />
+              </div>
+              <div className="field">
+                <label>Data</label>
+                <input
+                  className="input"
+                  required
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="field">
+              <label>Categoria</label>
+              <select
+                className="select"
+                required
+                value={formData.category_id}
+                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+              >
+                <option value="" disabled>
+                  Selecione…
+                </option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Toggle
+              checked={formData.isFixed}
+              onChange={(v) => setFormData({ ...formData, isFixed: v, startDate: v ? formData.date : formData.startDate })}
+            >
+              Renda fixa <span style={{ color: "var(--muted)", marginLeft: 4 }}>— se repete todo mês/ano</span>
+            </Toggle>
+            {formData.isFixed && (
+              <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+                <div className="field">
+                  <label>Recorrência</label>
+                  <select
+                    className="select"
+                    value={formData.recurrenceType}
+                    onChange={(e) => setFormData({ ...formData, recurrenceType: e.target.value })}
+                  >
+                    <option value="monthly">Mensal</option>
+                    <option value="yearly">Anual</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Início</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  />
+                </div>
+                <div className="field">
+                  <label>Fim (opcional)</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 mt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setShowForm(false);
+                  resetForm();
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" loading={submitting}>
+                {editingId ? "Atualizar" : "Salvar renda"}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="card" style={{ padding: 18 }}>
+      <div
+        style={{
+          fontSize: 10.5,
+          color: "var(--muted)",
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          fontWeight: 600,
+        }}
+      >
+        {label}
+      </div>
+      <div className="font-display num" style={{ fontSize: 24, marginTop: 8, fontWeight: 600 }}>
+        {value}
+      </div>
+      {hint && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>{hint}</div>}
     </div>
   );
 }

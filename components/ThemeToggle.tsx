@@ -1,16 +1,16 @@
 "use client";
-import { useTheme } from "../context/ThemeContext";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "@phosphor-icons/react";
+import { useAppearance } from "../context/AppearanceContext";
 
 export default function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme } = useAppearance();
   return (
     <button
       onClick={toggleTheme}
       aria-label={`Alternar para modo ${theme === "light" ? "escuro" : "claro"}`}
-      className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+      className="btn btn-ghost btn-icon"
     >
-      {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+      {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
     </button>
   );
 }

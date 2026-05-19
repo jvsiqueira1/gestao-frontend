@@ -1,368 +1,312 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Plus, PencilSimple, Trash, DotsThreeVertical } from "@phosphor-icons/react";
 import { useAuth } from "../../context/AuthContext";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
+import { fmtBRL } from "../../lib/format";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import Modal from "../../components/ui/Modal";
+import Segmented from "../../components/ui/Segmented";
+import { categoryColor } from "../../components/ui/CatChip";
 
 interface Category {
   id: number;
   name: string;
-  type: string;
-  created_at: string;
+  type: "expense" | "income";
 }
 
-export default function CategoryPage() {
+interface Stat {
+  count: number;
+  total: number;
+}
+
+export default function CategoriasPage() {
   const { token } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [stats, setStats] = useState<Record<number, Stat>>({});
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [deleting, setDeleting] = useState<number | null>(null);
+  const [tab, setTab] = useState<"expense" | "income">("expense");
+
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    type: "expense",
-  });
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [formName, setFormName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (!token) return;
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
-  const fetchCategories = async (forceRefresh = false) => {
+  const fetchAll = async () => {
+    setLoading(true);
     try {
-      // Adicionar timestamp para evitar cache
-      const timestamp = new Date().getTime();
-      const url = forceRefresh 
-        ? `${apiUrl(API_ENDPOINTS.CATEGORY)}?_t=${timestamp}&_refresh=true`
-        : `${apiUrl(API_ENDPOINTS.CATEGORY)}?_t=${timestamp}`;
-        
-      const res = await fetch(url, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        },
+      const cRes = await fetch(apiUrl(API_ENDPOINTS.CATEGORY), {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
-      const data = await res.json();
-      
-      // Verificar se os dados são um array antes de usar
-      const categoriesArray = Array.isArray(data) ? data : [];
-      setCategories(categoriesArray);
-    } catch (error) {
-      console.error("Erro ao carregar categorias:", error);
+      const cData = await cRes.json();
+      const cats: Category[] = Array.isArray(cData) ? cData : [];
+      setCategories(cats);
+
+      const [eRes, iRes] = await Promise.all([
+        fetch(apiUrl(API_ENDPOINTS.FINANCE.EXPENSE), {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME), {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      const [eData, iData] = await Promise.all([eRes.json(), iRes.json()]);
+      const all = [...(Array.isArray(eData) ? eData : []), ...(Array.isArray(iData) ? iData : [])];
+      const map: Record<number, Stat> = {};
+      for (const t of all) {
+        if (!t.category_id) continue;
+        if (!map[t.category_id]) map[t.category_id] = { count: 0, total: 0 };
+        map[t.category_id].count++;
+        map[t.category_id].total += parseFloat(String(t.value)) || 0;
+      }
+      setStats(map);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const openCreate = () => {
+    setEditingId(null);
+    setFormName("");
+    setError("");
+    setShowForm(true);
+  };
+
+  const openEdit = (c: Category) => {
+    setEditingId(c.id);
+    setFormName(c.name);
+    setError("");
+    setShowForm(true);
+  };
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setError("");
     try {
-      const url = editingId 
+      const url = editingId
         ? `${apiUrl(API_ENDPOINTS.CATEGORY)}/${editingId}`
         : apiUrl(API_ENDPOINTS.CATEGORY);
-      
       const method = editingId ? "PUT" : "POST";
-      const requestBody = {
-        name: formData.name,
-        type: formData.type,
-      };
-      
       const res = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(requestBody),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: formName, type: tab }),
       });
-
-      if (res.ok) {
-        const responseData = await res.json();
-        
-        if (editingId) {
-          // Atualizar categoria existente
-          setCategories(prevCategories => 
-            prevCategories.map(cat => 
-              cat.id === editingId ? responseData : cat
-            )
-          );
-        } else {
-          // Adicionar nova categoria
-          setCategories(prevCategories => [...prevCategories, responseData]);
-        }
-        
-        setFormData({ name: "", type: "expense" });
-        setShowForm(false);
-        setEditingId(null);
-        
-        // Forçar atualização completa do servidor
-        await fetchCategories(true);
-      } else {
-        const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-        console.error('Erro na resposta:', errorData);
-        alert(`Erro ao salvar categoria: ${errorData.error || 'Erro desconhecido'}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setError(err.error || "Erro ao salvar.");
+        return;
       }
-    } catch (error) {
-      console.error("Erro ao salvar categoria:", error);
-      alert('Erro ao salvar categoria. Verifique o console para mais detalhes.');
+      setShowForm(false);
+      fetchAll();
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleEdit = (category: Category) => {
-    setFormData({
-      name: category.name,
-      type: category.type,
+  const remove = async (id: number) => {
+    if (!confirm("Excluir esta categoria? Lançamentos vinculados ficarão sem categoria.")) return;
+    await fetch(`${apiUrl(API_ENDPOINTS.CATEGORY)}/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
     });
-    setEditingId(category.id);
-    setShowForm(true);
+    fetchAll();
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir esta categoria?")) return;
-    
-    setDeleting(id);
-    try {
-      const res = await fetch(`${apiUrl(API_ENDPOINTS.CATEGORY)}/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      if (res.ok) {
-        // Remover categoria do estado imediatamente
-        setCategories(prevCategories => 
-          prevCategories.filter(cat => cat.id !== id)
-        );
-        
-        // Forçar atualização completa do servidor
-        await fetchCategories(true);
-      }
-    } catch (error) {
-      console.error("Erro ao excluir categoria:", error);
-    } finally {
-      setDeleting(null);
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    return type === "income" ? "Receita" : "Despesa";
-  };
-
-  const getTypeColor = (type: string) => {
-    return type === "income" 
-      ? "bg-green-100 text-green-800" 
-      : "bg-red-100 text-red-800";
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Carregando categorias..." />
-      </div>
-    );
-  }
-
-  const expenseCategories = categories.filter(cat => cat.type === 'expense');
-  const incomeCategories = categories.filter(cat => cat.type === 'income');
+  const list = categories.filter((c) => c.type === tab);
+  const breakdown = list
+    .map((c) => ({ id: c.id, name: c.name, value: stats[c.id]?.total || 0, color: categoryColor(c.id) }))
+    .filter((b) => b.value > 0)
+    .sort((a, b) => b.value - a.value);
+  const totalBreak = breakdown.reduce((s, b) => s + b.value, 0);
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Categorias</h1>
-          <Button onClick={() => setShowForm(true)}>
-            + Nova Categoria
-          </Button>
+    <div>
+      <div className="page-head">
+        <div>
+          <div className="page-eyebrow">Configurações</div>
+          <h1 className="page-title">Categorias</h1>
+          <p className="page-sub">Organize seus lançamentos em rótulos que fazem sentido para você.</p>
         </div>
+        <Button onClick={openCreate}>
+          <Plus size={14} /> Nova categoria
+        </Button>
+      </div>
 
-        {showForm && (
-          <div className="bg-card text-card-foreground border border-border rounded-lg shadow p-6 mb-8">
-            <h2 className="text-xl font-semibold text-card-foreground">
-              {editingId ? "Editar Categoria" : "Nova Categoria"}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Nome
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground placeholder-muted-foreground"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-1">
-                  Tipo
-                </label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 bg-background text-foreground"
-                  required
-                >
-                  <option value="expense">Despesa</option>
-                  <option value="income">Receita</option>
-                </select>
-              </div>
-              <div className="flex gap-3">
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? (
-                    <div className="flex items-center gap-2">
-                      <LoadingSpinner size="sm" text="" />
-                      {editingId ? "Atualizando..." : "Salvando..."}
-                    </div>
-                  ) : (
-                    editingId ? "Atualizar" : "Salvar"
-                  )}
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="secondary"
-                  disabled={submitting}
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditingId(null);
-                    setFormData({ name: "", type: "expense" });
+      <div style={{ marginBottom: 20 }}>
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "expense", label: "Despesas" },
+            { value: "income", label: "Rendas" },
+          ]}
+        />
+      </div>
+
+      {loading ? (
+        <div className="py-16">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : list.length === 0 ? (
+        <div className="card text-center py-12" style={{ color: "var(--muted)" }}>
+          Nenhuma categoria de {tab === "expense" ? "despesa" : "renda"} ainda.
+        </div>
+      ) : (
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+          {list.map((c) => {
+            const st = stats[c.id] || { count: 0, total: 0 };
+            return (
+              <div
+                key={c.id}
+                className="border bg-bg-elev flex items-center gap-3"
+                style={{
+                  borderColor: "var(--border-soft)",
+                  borderRadius: "var(--r)",
+                  padding: "14px 16px",
+                }}
+              >
+                <div
+                  className="grid place-items-center text-white font-semibold"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    background: categoryColor(c.id),
+                    fontSize: 12,
                   }}
                 >
-                  Cancelar
-                </Button>
+                  {c.name[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0" style={{ lineHeight: 1.25 }}>
+                  <b style={{ fontSize: 13, fontWeight: 600, display: "block" }}>{c.name}</b>
+                  <span style={{ fontSize: 11.5, color: "var(--muted)" }}>
+                    <span className="num">{st.count}</span> lançamentos · {fmtBRL(st.total)}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => openEdit(c)}
+                    className="btn btn-ghost btn-icon btn-sm"
+                    aria-label="Editar"
+                  >
+                    <PencilSimple size={13} />
+                  </button>
+                  <button
+                    onClick={() => remove(c.id)}
+                    className="btn btn-ghost btn-icon btn-sm"
+                    aria-label="Excluir"
+                  >
+                    <Trash size={13} />
+                  </button>
+                </div>
               </div>
-            </form>
-          </div>
-        )}
+            );
+          })}
+          <button
+            onClick={openCreate}
+            className="flex items-center justify-center gap-2"
+            style={{
+              border: "1.5px dashed var(--border)",
+              borderRadius: "var(--r)",
+              padding: "14px 16px",
+              color: "var(--muted)",
+              background: "transparent",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={14} /> Adicionar categoria
+          </button>
+        </div>
+      )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Categorias de Despesa */}
-          <div className="bg-card text-card-foreground border border-border rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-red-50 dark:bg-red-900/20">
-              <h3 className="text-lg font-semibold text-red-900 dark:text-red-400">Categorias de Despesa</h3>
+      {breakdown.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <div className="card-title mb-3">Distribuição</div>
+          <div className="card">
+            <div
+              className="flex w-full overflow-hidden mb-4"
+              style={{ height: 12, borderRadius: 999, background: "var(--surface)" }}
+            >
+              {breakdown.map((b) => (
+                <div
+                  key={b.id}
+                  style={{ background: b.color, width: `${(b.value / totalBreak) * 100}%` }}
+                  title={b.name}
+                />
+              ))}
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-border bg-card">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Nome
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-inherit">
-                  {expenseCategories.map((category) => (
-                    <tr key={category.id} className="bg-inherit even:bg-muted hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                        {category.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(category)}
-                            disabled={deleting === category.id}
-                            className="text-cyan-600 hover:text-cyan-900 disabled:opacity-50"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(category.id)}
-                            disabled={deleting === category.id}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                          >
-                            {deleting === category.id ? (
-                              <div className="flex items-center gap-1">
-                                <LoadingSpinner size="sm" text="" />
-                                Excluindo...
-                              </div>
-                            ) : (
-                              'Excluir'
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {expenseCategories.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhuma categoria de despesa encontrada
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}
+            >
+              {breakdown.map((b) => (
+                <div
+                  key={b.id}
+                  className="flex justify-between items-center gap-2"
+                  style={{ fontSize: 12.5, padding: "6px 0" }}
+                >
+                  <span className="inline-flex items-center gap-2 truncate">
+                    <span
+                      style={{ width: 8, height: 8, borderRadius: 999, background: b.color, flexShrink: 0 }}
+                    />
+                    <span style={{ color: "var(--fg-soft)" }} className="truncate">
+                      {b.name}
+                    </span>
+                  </span>
+                  <span className="num font-mono" style={{ fontSize: 12 }}>
+                    {((b.value / totalBreak) * 100).toFixed(0)}%
+                  </span>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Categorias de Receita */}
-          <div className="bg-card text-card-foreground border border-border rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-green-50 dark:bg-green-900/20">
-              <h3 className="text-lg font-semibold text-green-900 dark:text-green-400">Categorias de Receita</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-border bg-card">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Nome
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-inherit">
-                  {incomeCategories.map((category) => (
-                    <tr key={category.id} className="bg-inherit even:bg-muted hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                        {category.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(category)}
-                            disabled={deleting === category.id}
-                            className="text-cyan-600 hover:text-cyan-900 disabled:opacity-50"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(category.id)}
-                            disabled={deleting === category.id}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                          >
-                            {deleting === category.id ? (
-                              <div className="flex items-center gap-1">
-                                <LoadingSpinner size="sm" text="" />
-                                Excluindo...
-                              </div>
-                            ) : (
-                              'Excluir'
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {incomeCategories.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhuma categoria de receita encontrada
-                </div>
-              )}
+              ))}
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {showForm && (
+        <Modal
+          title={editingId ? "Editar categoria" : "Nova categoria"}
+          subtitle={`Tipo: ${tab === "expense" ? "Despesa" : "Renda"}`}
+          onClose={() => setShowForm(false)}
+        >
+          <form onSubmit={submit} className="grid gap-3.5">
+            <div className="field">
+              <label>Nome</label>
+              <input
+                className="input"
+                required
+                autoFocus
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+              />
+            </div>
+            {error && (
+              <p className="text-xs" style={{ color: "var(--neg)" }}>
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end gap-2 mt-2">
+              <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" loading={submitting}>
+                Salvar
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
-} 
+}
