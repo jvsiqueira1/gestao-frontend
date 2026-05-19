@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { apiUrl, authenticatedRequest } from '@/lib/api';
-import { hasValidAccess } from '@/lib/api';
 import Button from '@/components/Button';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Pencil, Trash2, Clock } from 'lucide-react';
@@ -70,13 +69,7 @@ export default function FixedIncomesPage() {
       router.push('/login');
       return;
     }
-    
-    // Usar a função utilitária para verificar acesso
-    if (!hasValidAccess(user)) {
-      router.push('/perfil');
-      return;
-    }
-    
+
     fetchFixedIncomes();
     fetchCategories();
   }, [user, token, router]);

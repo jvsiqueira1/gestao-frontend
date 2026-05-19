@@ -1,21 +1,16 @@
 "use client";
-import { useTheme } from '../context/ThemeContext';
-import { Moon, Sun } from 'lucide-react';
+import { useTheme } from "../context/ThemeContext";
+import { Moon, Sun } from "lucide-react";
 
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
-
   return (
     <button
       onClick={toggleTheme}
-      className="p-2"
-      aria-label={`Alternar para modo ${theme === 'light' ? 'escuro' : 'claro'}`}
+      aria-label={`Alternar para modo ${theme === "light" ? "escuro" : "claro"}`}
+      className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
     >
-      {theme === 'light' ? (
-        <Moon className="w-5 h-5 text-gray-700" />
-      ) : (
-        <Sun className="w-5 h-5 text-gray-200" />
-      )}
+      {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
     </button>
   );
-} 
+}

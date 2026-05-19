@@ -1,96 +1,58 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
-import { ColorThemeProvider } from "../context/ColorThemeContext";
 import { LoadingProvider } from "../context/LoadingContext";
-import NavBar from "../components/NavBar";
-import Footer from "../components/Footer";
-import ChatbotWrapper from "../components/ChatbotWrapper";
 import ReactQueryProvider from "../components/ReactQueryProvider";
 import ThemeGate from "../components/ThemeGate";
+import AppShell from "../components/AppShell";
+import AuthGate from "../components/AuthGate";
+import InstallPWA from "../components/InstallPWA";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Gestão de Gastos | Controle Financeiro",
-  description: "Gerencie suas finanças pessoais de forma simples e eficiente. Controle gastos, receitas e metas financeiras.",
-  keywords: [
-    "finanças",
-    "controle financeiro",
-    "gastos",
-    "receitas",
-    "metas",
-    "organização financeira",
-    "app de finanças",
-    "gestão de gastos"
-  ],
-  openGraph: {
-    title: "Gestão de Gastos | Controle Financeiro",
-    description: "Gerencie suas finanças pessoais de forma simples e eficiente.",
-    url: "https://gestao.jvsdev.com.br", 
-    siteName: "Gestão de Gastos",
-    images: [
-      {
-        url: "/favicon-32x32.png", 
-        width: 800,
-        height: 600,
-        alt: "Logo do app",
-      },
-    ],
-    locale: "pt_BR",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Gestão de Gastos | Controle Financeiro",
-    description: "Gerencie suas finanças pessoais de forma simples e eficiente.",
-    images: ["/favicon-32x32.png"],
+  title: "Gestão de Gastos",
+  description: "Controle financeiro pessoal — single user.",
+  applicationName: "Gestão de Gastos",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Gastos",
   },
   icons: {
     icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        {/* Outros elementos do <head> (sem script de tema) */}
-      </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
         <ThemeGate>
           <ReactQueryProvider>
             <ThemeProvider>
-              <ColorThemeProvider>
-                <LoadingProvider>
-                  <AuthProvider>
-                    <div className="min-h-screen flex flex-col">
-                      <ThemeGate>
-                        <NavBar />
-                      </ThemeGate>
-                      <main className="flex-1">
-                        {children}
-                      </main>
-                      <Footer />
-                    </div>
-                    <ChatbotWrapper />
-                  </AuthProvider>
-                </LoadingProvider>
-              </ColorThemeProvider>
+              <LoadingProvider>
+                <AuthProvider>
+                  <AuthGate />
+                  <AppShell>{children}</AppShell>
+                  <InstallPWA />
+                </AuthProvider>
+              </LoadingProvider>
             </ThemeProvider>
           </ReactQueryProvider>
         </ThemeGate>

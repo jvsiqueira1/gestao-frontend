@@ -1,13 +1,28 @@
 import React from "react";
 import clsx from "clsx";
-import { useColorTheme } from '../context/ColorThemeContext';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
-  variant?: "primary" | "secondary" | "text";
-  size?: "md" | "lg";
+  variant?: "primary" | "secondary" | "ghost" | "destructive";
+  size?: "sm" | "md" | "lg";
   children: React.ReactNode;
 }
+
+const base =
+  "inline-flex items-center justify-center gap-2 font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed";
+
+const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
+  primary: "bg-foreground text-background hover:bg-foreground/90",
+  secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border",
+  ghost: "hover:bg-secondary hover:text-foreground text-muted-foreground",
+  destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+};
+
+const sizes: Record<NonNullable<ButtonProps["size"]>, string> = {
+  sm: "h-8 px-3 text-xs",
+  md: "h-9 px-4 text-sm",
+  lg: "h-10 px-5 text-sm",
+};
 
 export default function Button({
   loading = false,
@@ -18,42 +33,16 @@ export default function Button({
   children,
   ...props
 }: ButtonProps) {
-  const { colorTheme } = useColorTheme ? useColorTheme() : { colorTheme: 'default' };
-  const base =
-    "inline-flex items-center justify-center font-semibold rounded-md transition focus:outline-none focus:ring-2 focus:ring-primary-200 disabled:opacity-60 disabled:cursor-not-allowed";
-  const variants = {
-    primary:
-      colorTheme === 'default'
-        ? "bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white"
-        : "bg-primary hover:bg-primary/90 active:bg-primary/80 text-primary-foreground",
-    secondary:
-      colorTheme === 'default'
-        ? "bg-white border border-cyan-500 text-cyan-700 hover:bg-cyan-50 active:bg-cyan-100"
-        : "bg-background border border-primary text-primary hover:bg-primary/10 active:bg-primary/20",
-    text:
-      colorTheme === 'default'
-        ? "bg-transparent text-cyan-600 hover:underline px-2 py-1"
-        : "bg-transparent text-primary hover:underline px-2 py-1",
-  };
-  const sizes = {
-    md: "h-10 px-4 text-base",
-    lg: "h-12 px-6 text-lg",
-  };
   return (
     <button
-      className={clsx(
-        base,
-        variants[variant],
-        sizes[size],
-        className
-      )}
+      className={clsx(base, variants[variant], sizes[size], className)}
       disabled={disabled || loading}
       {...props}
     >
       {loading && (
-        <span className={colorTheme === 'default' ? "animate-spin mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full" : "animate-spin mr-2 w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"}></span>
+        <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
       )}
       {children}
     </button>
   );
-} 
+}

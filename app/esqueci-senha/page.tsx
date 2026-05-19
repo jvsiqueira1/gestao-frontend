@@ -1,78 +1,77 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { apiUrl, API_ENDPOINTS } from "../../lib/api";
+import Button from "../../components/Button";
 
 export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState("");
-  const [enviado, setEnviado] = useState(false);
-  const [erro, setErro] = useState("");
+  const [sent, setSent] = useState(false);
+  const [devUrl, setDevUrl] = useState<string | null>(null);
+  const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
-  const router = useRouter();
 
-  async function handleSubmit(e: React.FormEvent) {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErro("");
+    setErr("");
     setLoading(true);
     try {
-      const res = await fetch("/api/esqueci-senha", {
+      const res = await fetch(apiUrl(API_ENDPOINTS.AUTH.FORGOT), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      setLoading(false);
-      if (res.ok) {
-        setEnviado(true);
-        setRedirecting(true);
-        setTimeout(() => router.push("/"), 2000);
-      } else {
-        const data = await res.json();
-        setErro(data.error || "Erro ao enviar e-mail. Tente novamente.");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(data.error || "Erro ao solicitar.");
+        return;
       }
-    } catch (err) {
+      setSent(true);
+      if (data.dev_reset_url) setDevUrl(data.dev_reset_url);
+    } finally {
       setLoading(false);
-      setErro("Erro ao enviar e-mail. Tente novamente.");
     }
-  }
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-light dark:bg-gray-900 px-4">
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 sm:p-10">
-        <h2 className="text-3xl font-extrabold text-primary-700 dark:text-primary-400 mb-2 text-center">Recuperar senha</h2>
-        <p className="text-text-secondary dark:text-gray-300 text-center mb-8">Informe seu e-mail para receber o link de redefinição de senha.</p>
-        {enviado ? (
-          <div className="text-center">
-            <div className="bg-feedback-success/90 text-white rounded-md px-3 py-2 text-sm mb-4">Se o e-mail existir, enviaremos instruções para redefinir sua senha.</div>
-            {redirecting && <div className="text-text-secondary dark:text-gray-300 text-sm">Redirecionando para a página inicial...</div>}
+    <div className="min-h-screen grid place-items-center px-4">
+      <div className="w-full max-w-sm">
+        <h1 className="text-xl font-semibold tracking-tight mb-2">Recuperar senha</h1>
+        <p className="text-sm text-muted-foreground mb-6">Envie seu e-mail para gerar um link de redefinição.</p>
+
+        {sent ? (
+          <div className="space-y-4">
+            <p className="text-sm">Se o e-mail existir, o link foi gerado.</p>
+            {devUrl && (
+              <div className="text-xs rounded-md border bg-card p-3 break-all">
+                <p className="text-muted-foreground mb-1">Link (dev):</p>
+                <a className="underline" href={devUrl}>{devUrl}</a>
+              </div>
+            )}
+            <Link href="/login" className="text-sm underline text-muted-foreground">← Voltar</Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text-primary dark:text-white mb-1">E-mail</label>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-xs font-medium text-muted-foreground">E-mail</label>
               <input
                 id="email"
                 type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full h-11 px-4 border border-neutral-dark dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white dark:bg-gray-700 text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 transition text-base shadow-sm"
-                placeholder="Digite seu e-mail"
-                autoComplete="email"
                 autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            {erro && <div className="bg-feedback-error/90 text-white rounded-md px-3 py-2 text-sm text-center animate-shake">{erro}</div>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-2 bg-primary-600 hover:bg-primary-700 dark:bg-primary-400 dark:hover:bg-primary-500 text-white font-semibold py-3 rounded-lg transition-colors duration-200 text-base shadow-sm"
-              aria-label="Enviar e-mail de recuperação"
-            >
-              {loading ? "Enviando..." : "Enviar"}
-            </button>
+            {err && <p className="text-xs text-destructive">{err}</p>}
+            <Button type="submit" loading={loading} size="lg" className="w-full">Enviar</Button>
+            <p className="text-xs text-muted-foreground text-center">
+              <Link href="/login" className="underline">Voltar ao login</Link>
+            </p>
           </form>
         )}
       </div>
     </div>
   );
-} 
+}

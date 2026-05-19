@@ -1,106 +1,85 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { apiUrl, API_ENDPOINTS } from "../../lib/api";
+import Button from "../../components/Button";
 
-function TrocarSenhaPage() {
+function TrocarSenhaInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const token = searchParams?.get("token") || "";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [sucesso, setSucesso] = useState(false);
-  const [erro, setErro] = useState("");
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
-  const router = useRouter();
 
-  useEffect(() => {
-    setErro("");
-  }, [password, confirm]);
+  useEffect(() => setErr(""), [password, confirm]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErro("");
-    if (!token) {
-      setErro("Token inválido ou ausente.");
-      return;
-    }
-    if (password.length < 6) {
-      setErro("A senha deve ter pelo menos 6 caracteres.");
-      return;
-    }
-    if (password !== confirm) {
-      setErro("As senhas não coincidem.");
-      return;
-    }
+    if (!token) return setErr("Token inválido ou ausente.");
+    if (password.length < 6) return setErr("Senha precisa ter ao menos 6 caracteres.");
+    if (password !== confirm) return setErr("As senhas não coincidem.");
     setLoading(true);
     try {
-      const res = await fetch("/api/trocar-senha", {
+      const res = await fetch(apiUrl(API_ENDPOINTS.AUTH.RESET), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-      setLoading(false);
-      if (res.ok) {
-        setSucesso(true);
-        setRedirecting(true);
-        setTimeout(() => router.push("/login"), 2000);
-      } else {
-        const data = await res.json();
-        setErro(data.error || "Erro ao trocar senha. Tente novamente.");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(data.error || "Erro ao trocar senha.");
+        return;
       }
-    } catch (err) {
+      setDone(true);
+      setTimeout(() => router.push("/login"), 1500);
+    } finally {
       setLoading(false);
-      setErro("Erro ao trocar senha. Tente novamente.");
     }
-  }
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-light dark:bg-gray-900 px-4">
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 sm:p-10">
-        <h2 className="text-3xl font-extrabold text-primary-700 dark:text-primary-400 mb-2 text-center">Trocar senha</h2>
-        <p className="text-text-secondary dark:text-gray-300 text-center mb-8">Digite sua nova senha abaixo.</p>
-        {sucesso ? (
-          <div className="text-center">
-            <div className="bg-feedback-success/90 text-white rounded-md px-3 py-2 text-sm mb-4">Senha alterada com sucesso! Você já pode fazer login com sua nova senha.</div>
-            {redirecting && <div className="text-text-secondary dark:text-gray-300 text-sm">Redirecionando para o login...</div>}
-          </div>
+    <div className="min-h-screen grid place-items-center px-4">
+      <div className="w-full max-w-sm">
+        <h1 className="text-xl font-semibold tracking-tight mb-2">Trocar senha</h1>
+        <p className="text-sm text-muted-foreground mb-6">Defina sua nova senha.</p>
+
+        {done ? (
+          <p className="text-sm">Senha alterada. Redirecionando para login…</p>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-text-primary dark:text-white mb-1">Nova senha</label>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Nova senha</label>
               <input
                 type="password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full h-11 px-4 border border-neutral-dark dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white dark:bg-gray-700 text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 transition text-base shadow-sm"
-                placeholder="Digite a nova senha"
                 autoComplete="new-password"
+                className="w-full h-10 px-3 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary dark:text-white mb-1">Confirmar nova senha</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Confirmar nova senha</label>
               <input
                 type="password"
                 value={confirm}
-                onChange={e => setConfirm(e.target.value)}
+                onChange={(e) => setConfirm(e.target.value)}
                 required
                 minLength={6}
-                className="w-full h-11 px-4 border border-neutral-dark dark:border-gray-600 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 bg-white dark:bg-gray-700 text-text-primary dark:text-white placeholder:text-text-muted dark:placeholder-gray-400 transition text-base shadow-sm"
-                placeholder="Confirme a nova senha"
                 autoComplete="new-password"
+                className="w-full h-10 px-3 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            {erro && <div className="bg-feedback-error/90 text-white rounded-md px-3 py-2 text-sm text-center animate-shake">{erro}</div>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-2 bg-primary-600 hover:bg-primary-700 dark:bg-primary-400 dark:hover:bg-primary-500 text-white font-semibold py-3 rounded-lg transition-colors duration-200 text-base shadow-sm"
-              aria-label="Trocar senha"
-            >
-              {loading ? "Enviando..." : "Trocar senha"}
-            </button>
+            {err && <p className="text-xs text-destructive">{err}</p>}
+            <Button type="submit" loading={loading} size="lg" className="w-full">Trocar</Button>
+            <p className="text-xs text-muted-foreground text-center">
+              <Link href="/login" className="underline">Voltar ao login</Link>
+            </p>
           </form>
         )}
       </div>
@@ -110,8 +89,8 @@ function TrocarSenhaPage() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div>Carregando...</div>}>
-      <TrocarSenhaPage />
+    <Suspense fallback={<div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Carregando…</div>}>
+      <TrocarSenhaInner />
     </Suspense>
   );
-} 
+}
