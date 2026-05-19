@@ -34,13 +34,25 @@ interface Income {
   endDate?: string;
 }
 
+interface FixedIncome {
+  id: number;
+  description: string;
+  value: number;
+  category_id: number | null;
+  category?: { id: number; name: string } | null;
+  recurrenceType: string;
+  startDate: string;
+  endDate: string | null;
+}
+
 interface Category {
   id: number;
   name: string;
   type: string;
 }
 
-type FilterMode = "all" | "fixed";
+type ViewMode = "all" | "fixed";
+type EditTarget = { kind: "occurrence"; id: number } | { kind: "fixed"; id: number } | null;
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -51,13 +63,14 @@ export default function RendasPage() {
   const [year, setYear] = useState(now.getFullYear());
 
   const [incomes, setIncomes] = useState<Income[]>([]);
+  const [fixedTemplates, setFixedTemplates] = useState<FixedIncome[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<FilterMode>("all");
+  const [view, setView] = useState<ViewMode>("all");
   const [search, setSearch] = useState("");
 
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTarget, setEditTarget] = useState<EditTarget>(null);
   const [formData, setFormData] = useState({
     description: "",
     value: "",
@@ -81,16 +94,20 @@ export default function RendasPage() {
     setLoading(true);
     try {
       const params = `?month=${month}&year=${year}`;
-      const [iRes, cRes] = await Promise.all([
+      const [iRes, fRes, cRes] = await Promise.all([
         fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME) + params, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(apiUrl(API_ENDPOINTS.FIXED_INCOMES), {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(apiUrl(API_ENDPOINTS.CATEGORY), {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
-      const [iData, cData] = await Promise.all([iRes.json(), cRes.json()]);
+      const [iData, fData, cData] = await Promise.all([iRes.json(), fRes.json(), cRes.json()]);
       setIncomes(Array.isArray(iData) ? iData : []);
+      setFixedTemplates(Array.isArray(fData) ? fData : []);
       setCategories(Array.isArray(cData) ? cData.filter((c: Category) => c.type === "income") : []);
     } finally {
       setLoading(false);
@@ -110,14 +127,18 @@ export default function RendasPage() {
     } else setMonth(month + 1);
   };
 
-  const filtered = incomes
-    .filter((e) => (filter === "fixed" ? e.isFixed : true))
-    .filter((e) =>
-      search.trim() ? e.description.toLowerCase().includes(search.trim().toLowerCase()) : true
-    );
+  const realized = incomes.filter((e) => !e.pending);
+  const total = realized.reduce((s, e) => s + parseFloat(String(e.value)), 0);
+  const fixedTotal = fixedTemplates
+    .filter((f) => f.recurrenceType === "monthly")
+    .reduce((s, f) => s + parseFloat(String(f.value)), 0);
 
-  const total = incomes.filter((e) => !e.pending).reduce((s, e) => s + parseFloat(String(e.value)), 0);
-  const fixedTotal = incomes.filter((e) => e.isFixed && !e.pending).reduce((s, e) => s + parseFloat(String(e.value)), 0);
+  const occurrencesFiltered = realized.filter((e) =>
+    search.trim() ? e.description.toLowerCase().includes(search.trim().toLowerCase()) : true
+  );
+  const templatesFiltered = fixedTemplates.filter((f) =>
+    search.trim() ? f.description.toLowerCase().includes(search.trim().toLowerCase()) : true
+  );
 
   const resetForm = () => {
     setFormData({
@@ -125,66 +146,22 @@ export default function RendasPage() {
       value: "",
       date: today(),
       category_id: "",
-      isFixed: false,
+      isFixed: view === "fixed",
       recurrenceType: "monthly",
       startDate: today(),
       endDate: "",
     });
-    setEditingId(null);
+    setEditTarget(null);
   };
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const url = editingId
-        ? `${apiUrl(API_ENDPOINTS.FINANCE.INCOME)}/${editingId}`
-        : apiUrl(API_ENDPOINTS.FINANCE.INCOME);
-      const method = editingId ? "PUT" : "POST";
-      const body = {
-        description: formData.description,
-        value: parseFloat(formData.value),
-        date: formData.date,
-        category_id: formData.category_id ? parseInt(formData.category_id) : null,
-        isFixed: formData.isFixed,
-        recurrenceType: formData.isFixed ? formData.recurrenceType : null,
-        startDate: formData.isFixed ? formData.startDate : null,
-        endDate: formData.isFixed && formData.endDate ? formData.endDate : null,
-      };
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err.error || "Erro ao salvar.");
-        return;
-      }
-      setShowForm(false);
-      resetForm();
-      fetchData();
-    } finally {
-      setSubmitting(false);
-    }
+  const openCreate = () => {
+    resetForm();
+    setFormData((f) => ({ ...f, isFixed: view === "fixed" }));
+    setShowForm(true);
   };
 
-  const remove = async (id: number) => {
-    if (!confirm("Excluir esta renda?")) return;
-    setDeleting(id);
-    try {
-      await fetch(`${apiUrl(API_ENDPOINTS.FINANCE.INCOME)}/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      fetchData();
-    } finally {
-      setDeleting(null);
-    }
-  };
-
-  const openEdit = (e: Income) => {
-    setEditingId(typeof e.id === "number" ? e.id : null);
+  const openEditOccurrence = (e: Income) => {
+    setEditTarget({ kind: "occurrence", id: Number(e.id) });
     setFormData({
       description: e.description,
       value: String(e.value),
@@ -198,6 +175,117 @@ export default function RendasPage() {
     setShowForm(true);
   };
 
+  const openEditTemplate = (f: FixedIncome) => {
+    setEditTarget({ kind: "fixed", id: f.id });
+    setFormData({
+      description: f.description,
+      value: String(f.value),
+      date: today(),
+      category_id: f.category_id ? String(f.category_id) : "",
+      isFixed: true,
+      recurrenceType: f.recurrenceType,
+      startDate: f.startDate.split("T")[0],
+      endDate: f.endDate ? f.endDate.split("T")[0] : "",
+    });
+    setShowForm(true);
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      if (editTarget?.kind === "fixed") {
+        const body = {
+          description: formData.description,
+          value: parseFloat(formData.value),
+          category_id: formData.category_id ? parseInt(formData.category_id) : null,
+          recurrenceType: formData.recurrenceType,
+          startDate: formData.startDate,
+          endDate: formData.endDate || null,
+        };
+        const res = await fetch(`${apiUrl(API_ENDPOINTS.FIXED_INCOMES)}/${editTarget.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || "Erro ao salvar.");
+          return;
+        }
+      } else {
+        const url =
+          editTarget?.kind === "occurrence"
+            ? `${apiUrl(API_ENDPOINTS.FINANCE.INCOME)}/${editTarget.id}`
+            : apiUrl(API_ENDPOINTS.FINANCE.INCOME);
+        const method = editTarget?.kind === "occurrence" ? "PUT" : "POST";
+        const body = {
+          description: formData.description,
+          value: parseFloat(formData.value),
+          date: formData.date,
+          category_id: formData.category_id ? parseInt(formData.category_id) : null,
+          isFixed: formData.isFixed,
+          recurrenceType: formData.isFixed ? formData.recurrenceType : null,
+          startDate: formData.isFixed ? formData.startDate : null,
+          endDate: formData.isFixed && formData.endDate ? formData.endDate : null,
+        };
+        const res = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || "Erro ao salvar.");
+          return;
+        }
+      }
+      setShowForm(false);
+      resetForm();
+      fetchData();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const removeOccurrence = async (id: number) => {
+    if (!confirm("Excluir esta renda?")) return;
+    setDeleting(id);
+    try {
+      await fetch(`${apiUrl(API_ENDPOINTS.FINANCE.INCOME)}/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchData();
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const removeTemplate = async (id: number) => {
+    if (!confirm("Excluir esta renda fixa? Todos os lançamentos vinculados serão removidos.")) return;
+    setDeleting(id);
+    try {
+      await fetch(`${apiUrl(API_ENDPOINTS.FIXED_INCOMES)}/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchData();
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const createLabel = view === "fixed" ? "Nova renda fixa" : "Nova renda";
+  const modalTitle =
+    editTarget?.kind === "fixed"
+      ? "Editar renda fixa"
+      : editTarget?.kind === "occurrence"
+      ? "Editar renda"
+      : view === "fixed"
+      ? "Nova renda fixa"
+      : "Nova renda";
+
   return (
     <div>
       <div className="page-head">
@@ -205,7 +293,7 @@ export default function RendasPage() {
           <div className="page-eyebrow">Movimentos</div>
           <h1 className="page-title">Rendas</h1>
           <p className="page-sub">
-            {MONTH_NAMES_FULL[month - 1]} de {year} · {incomes.length} lançamentos · {fmtBRL(total)} no total
+            {MONTH_NAMES_FULL[month - 1]} de {year} · {realized.length} lançamentos · {fmtBRL(total)} no total
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -223,17 +311,8 @@ export default function RendasPage() {
               <CaretRight size={14} />
             </button>
           </div>
-          <a href="/rendas/fixas" className="btn btn-outline">
-            <Repeat size={14} /> Fixas
-          </a>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-          >
-            <Plus size={14} /> Nova renda
+          <button className="btn btn-primary" onClick={openCreate}>
+            <Plus size={14} /> {createLabel}
           </button>
         </div>
       </div>
@@ -242,22 +321,32 @@ export default function RendasPage() {
         className="grid mb-[var(--gap)]"
         style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}
       >
-        <Stat label="Total no mês" value={fmtBRL(total)} hint={`${incomes.length} lançamentos`} />
-        <Stat label="Rendas fixas" value={fmtBRL(fixedTotal)} hint={`${incomes.filter((i) => i.isFixed).length} recorrentes`} />
-        <Stat label="Rendas variáveis" value={fmtBRL(total - fixedTotal)} hint={`${incomes.filter((i) => !i.isFixed).length} avulsas`} />
+        <Stat label="Total no mês" value={fmtBRL(total)} hint={`${realized.length} lançamentos`} />
+        <Stat
+          label="Rendas fixas"
+          value={fmtBRL(fixedTotal)}
+          hint={`${fixedTemplates.length} templates · ${realized.filter((i) => i.isFixed).length} no mês`}
+        />
+        <Stat
+          label="Avulsas"
+          value={fmtBRL(
+            total - realized.filter((i) => i.isFixed).reduce((s, i) => s + parseFloat(String(i.value)), 0)
+          )}
+          hint={`${realized.filter((i) => !i.isFixed).length} lançamentos`}
+        />
       </div>
 
       <div className="tbl-wrap">
         <div className="tbl-head">
           <Segmented
-            value={filter}
-            onChange={setFilter}
+            value={view}
+            onChange={setView}
             options={[
               {
                 value: "all",
                 label: (
                   <>
-                    Todas <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>{incomes.length}</span>
+                    Lançamentos <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>{realized.length}</span>
                   </>
                 ),
               },
@@ -265,10 +354,7 @@ export default function RendasPage() {
                 value: "fixed",
                 label: (
                   <>
-                    Fixas{" "}
-                    <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>
-                      {incomes.filter((i) => i.isFixed).length}
-                    </span>
+                    Fixas <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>{fixedTemplates.length}</span>
                   </>
                 ),
               },
@@ -300,9 +386,97 @@ export default function RendasPage() {
           <div className="p-12">
             <LoadingSpinner size="lg" />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : view === "fixed" ? (
+          templatesFiltered.length === 0 ? (
+            <div className="p-10 text-center text-sm" style={{ color: "var(--muted)" }}>
+              Nenhuma renda fixa configurada.
+            </div>
+          ) : (
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th style={{ width: "36%" }}>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Recorrência</th>
+                  <th>Início</th>
+                  <th>Fim</th>
+                  <th style={{ textAlign: "right" }}>Valor</th>
+                  <th style={{ width: 80 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {templatesFiltered.map((f) => {
+                  const catName =
+                    f.category?.name || categories.find((c) => c.id === f.category_id)?.name;
+                  return (
+                    <tr key={f.id}>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="grid place-items-center"
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 8,
+                              background: "var(--surface)",
+                              color: "var(--fg-soft)",
+                              fontSize: 12.5,
+                              fontWeight: 600,
+                              border: "1px solid var(--border-soft)",
+                            }}
+                          >
+                            {f.description[0].toUpperCase()}
+                          </span>
+                          <div>
+                            <div style={{ fontWeight: 500 }}>{f.description}</div>
+                            <div
+                              className="inline-flex items-center gap-1"
+                              style={{
+                                fontSize: 10.5,
+                                color: "var(--muted)",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.08em",
+                              }}
+                            >
+                              <Repeat size={10} /> recorrente
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        {catName && <CatChip name={catName} color={categoryColor(f.category_id || catName)} />}
+                      </td>
+                      <td>
+                        <Pill tone="info">{f.recurrenceType === "yearly" ? "anual" : "mensal"}</Pill>
+                      </td>
+                      <td style={{ color: "var(--fg-soft)" }}>{fmtDate(f.startDate)}</td>
+                      <td style={{ color: "var(--fg-soft)" }}>{f.endDate ? fmtDate(f.endDate) : "—"}</td>
+                      <td className="num" style={{ textAlign: "right", color: "var(--pos)", fontWeight: 500 }}>
+                        +{fmtBRL(parseFloat(String(f.value))).replace("R$", "").trim()}
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <button aria-label="Editar" onClick={() => openEditTemplate(f)}>
+                            <PencilSimple size={14} />
+                          </button>
+                          <button
+                            aria-label="Excluir"
+                            onClick={() => removeTemplate(f.id)}
+                            disabled={deleting === f.id}
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )
+        ) : occurrencesFiltered.length === 0 ? (
           <div className="p-10 text-center text-sm" style={{ color: "var(--muted)" }}>
-            Nenhuma renda neste filtro.
+            Sem rendas no mês.
           </div>
         ) : (
           <table className="tbl">
@@ -317,7 +491,7 @@ export default function RendasPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((e) => (
+              {occurrencesFiltered.map((e) => (
                 <tr key={e.id}>
                   <td>
                     <div className="flex items-center gap-2.5">
@@ -348,7 +522,7 @@ export default function RendasPage() {
                               letterSpacing: "0.08em",
                             }}
                           >
-                            <Repeat size={10} /> recorrente · {e.recurrenceType === "yearly" ? "anual" : "mensal"}
+                            <Repeat size={10} /> recorrente
                           </div>
                         )}
                       </div>
@@ -366,12 +540,12 @@ export default function RendasPage() {
                   <td>{e.isFixed ? <Pill tone="info">fixa</Pill> : <Pill>avulsa</Pill>}</td>
                   <td>
                     <div className="row-actions">
-                      <button aria-label="Editar" onClick={() => openEdit(e)}>
+                      <button aria-label="Editar" onClick={() => openEditOccurrence(e)}>
                         <PencilSimple size={14} />
                       </button>
                       <button
                         aria-label="Excluir"
-                        onClick={() => typeof e.id === "number" && remove(e.id)}
+                        onClick={() => typeof e.id === "number" && removeOccurrence(e.id)}
                         disabled={deleting === e.id}
                       >
                         <Trash size={14} />
@@ -387,8 +561,12 @@ export default function RendasPage() {
 
       {showForm && (
         <Modal
-          title={editingId ? "Editar renda" : "Nova renda"}
-          subtitle={`Registre uma renda em ${MONTH_NAMES_FULL[month - 1]} de ${year}.`}
+          title={modalTitle}
+          subtitle={
+            editTarget?.kind === "fixed" || (view === "fixed" && !editTarget)
+              ? "Configure uma renda recorrente."
+              : `Registre uma renda em ${MONTH_NAMES_FULL[month - 1]} de ${year}.`
+          }
           onClose={() => {
             setShowForm(false);
             resetForm();
@@ -403,7 +581,7 @@ export default function RendasPage() {
                 autoFocus
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Ex: Salário maio"
+                placeholder="Ex: Salário, Freela…"
               />
             </div>
             <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
@@ -420,16 +598,18 @@ export default function RendasPage() {
                   placeholder="0,00"
                 />
               </div>
-              <div className="field">
-                <label>Data</label>
-                <input
-                  className="input"
-                  required
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
+              {editTarget?.kind !== "fixed" && !(view === "fixed" && !editTarget) && (
+                <div className="field">
+                  <label>Data</label>
+                  <input
+                    className="input"
+                    required
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  />
+                </div>
+              )}
             </div>
             <div className="field">
               <label>Categoria</label>
@@ -449,13 +629,18 @@ export default function RendasPage() {
                 ))}
               </select>
             </div>
-            <Toggle
-              checked={formData.isFixed}
-              onChange={(v) => setFormData({ ...formData, isFixed: v, startDate: v ? formData.date : formData.startDate })}
-            >
-              Renda fixa <span style={{ color: "var(--muted)", marginLeft: 4 }}>— se repete todo mês/ano</span>
-            </Toggle>
-            {formData.isFixed && (
+            {editTarget?.kind !== "fixed" && (
+              <Toggle
+                checked={formData.isFixed}
+                onChange={(v) =>
+                  setFormData({ ...formData, isFixed: v, startDate: v ? formData.date : formData.startDate })
+                }
+              >
+                Renda fixa{" "}
+                <span style={{ color: "var(--muted)", marginLeft: 4 }}>— se repete todo mês/ano</span>
+              </Toggle>
+            )}
+            {(formData.isFixed || editTarget?.kind === "fixed") && (
               <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
                 <div className="field">
                   <label>Recorrência</label>
@@ -473,6 +658,7 @@ export default function RendasPage() {
                   <input
                     className="input"
                     type="date"
+                    required
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                   />
@@ -500,7 +686,7 @@ export default function RendasPage() {
                 Cancelar
               </Button>
               <Button type="submit" loading={submitting}>
-                {editingId ? "Atualizar" : "Salvar renda"}
+                {editTarget ? "Atualizar" : "Salvar"}
               </Button>
             </div>
           </form>
