@@ -438,6 +438,15 @@
     border: 1px solid var(--border-soft);
     border-radius: var(--r-lg);
     padding: var(--pad-card);
+    display: flex;
+    flex-direction: column;
+  }
+  /* Elemento dentro do card que deve esticar para preencher o espaço restante. */
+  .card-fill {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   .card-head {
     display: flex;

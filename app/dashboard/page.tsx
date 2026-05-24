@@ -267,7 +267,7 @@ export default function Dashboard() {
                   </span>
                 </div>
               </CardHead>
-              <LineIE data={monthlyData} />
+              <LineIE data={monthlyData} fill />
             </Card>
 
             <Card>

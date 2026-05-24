@@ -1,7 +1,6 @@
 "use client";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { fmtBRL } from "../../lib/format";
-import { categoryColor } from "../ui/CatChip";
 
 export interface DonutDatum {
   name: string;
@@ -14,6 +13,27 @@ interface DonutProps {
   height?: number;
   centerLabel?: string;
   centerValue?: string;
+}
+
+/**
+ * Paleta indexada para fatias do donut. Usar índice (não hash do nome) garante
+ * que fatias adjacentes nunca colidam de cor enquanto houver ≤ PALETTE.length itens.
+ */
+const SLICE_PALETTE = [
+  "#ec4899", // pink
+  "#8b5cf6", // violet
+  "#f59e0b", // amber
+  "#10b981", // emerald
+  "#06b6d4", // cyan
+  "#6366f1", // indigo
+  "#ef4444", // red
+  "#84cc16", // lime
+  "#3b82f6", // blue
+  "#a855f7", // purple
+];
+
+function sliceColor(i: number): string {
+  return SLICE_PALETTE[i % SLICE_PALETTE.length];
 }
 
 export default function Donut({ data, height = 240, centerLabel, centerValue }: DonutProps) {
@@ -35,7 +55,7 @@ export default function Donut({ data, height = 240, centerLabel, centerValue }: 
             strokeWidth={2}
           >
             {data.map((d, i) => (
-              <Cell key={i} fill={d.color || categoryColor(d.name)} />
+              <Cell key={i} fill={d.color || sliceColor(i)} />
             ))}
           </Pie>
           <Tooltip
@@ -94,7 +114,7 @@ export default function Donut({ data, height = 240, centerLabel, centerValue }: 
                     width: 8,
                     height: 8,
                     borderRadius: 999,
-                    background: d.color || categoryColor(d.name),
+                    background: d.color || sliceColor(i),
                     flexShrink: 0,
                   }}
                 />
