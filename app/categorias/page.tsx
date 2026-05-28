@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, PencilSimple, Trash, DotsThreeVertical } from "@phosphor-icons/react";
+import { Plus, PencilSimple, Trash, DotsThreeVertical, ArrowCounterClockwise } from "@phosphor-icons/react";
 import { useAuth } from "../../context/AuthContext";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
 import { fmtBRL } from "../../lib/format";
@@ -21,6 +21,11 @@ interface Stat {
   total: number;
 }
 
+interface MissingDefault {
+  name: string;
+  type: "expense" | "income";
+}
+
 export default function CategoriasPage() {
   const { token } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -33,6 +38,8 @@ export default function CategoriasPage() {
   const [formName, setFormName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [missingDefaults, setMissingDefaults] = useState<MissingDefault[]>([]);
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -68,8 +75,34 @@ export default function CategoriasPage() {
         map[t.category_id].total += parseFloat(String(t.value)) || 0;
       }
       setStats(map);
+
+      // Categorias padrão faltantes (deletadas pelo usuário)
+      const mRes = await fetch(`${apiUrl(API_ENDPOINTS.CATEGORY)}/defaults/missing`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const mData = await mRes.json().catch(() => []);
+      setMissingDefaults(Array.isArray(mData) ? mData : []);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const restoreDefaults = async () => {
+    if (restoring) return;
+    setRestoring(true);
+    try {
+      const res = await fetch(`${apiUrl(API_ENDPOINTS.CATEGORY)}/restore-defaults`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Erro ao restaurar categorias padrão.");
+        return;
+      }
+      await fetchAll();
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -123,6 +156,7 @@ export default function CategoriasPage() {
   };
 
   const list = categories.filter((c) => c.type === tab);
+  const missingForTab = missingDefaults.filter((m) => m.type === tab);
   const breakdown = list
     .map((c) => ({ id: c.id, name: c.name, value: stats[c.id]?.total || 0, color: categoryColor(c.id) }))
     .filter((b) => b.value > 0)
@@ -152,6 +186,32 @@ export default function CategoriasPage() {
           ]}
         />
       </div>
+
+      {!loading && missingForTab.length > 0 && (
+        <div
+          className="flex items-center gap-3"
+          style={{
+            border: "1px solid var(--border-soft)",
+            background: "var(--bg-elev)",
+            borderRadius: "var(--r)",
+            padding: "12px 14px",
+            marginBottom: 16,
+          }}
+        >
+          <ArrowCounterClockwise size={16} style={{ color: "var(--muted)", flexShrink: 0 }} />
+          <div className="flex-1 min-w-0" style={{ fontSize: 13, lineHeight: 1.4 }}>
+            <b style={{ fontWeight: 600 }}>
+              {missingForTab.length} {missingForTab.length === 1 ? "categoria padrão" : "categorias padrão"} faltando
+            </b>{" "}
+            <span style={{ color: "var(--muted)" }}>
+              ({missingForTab.map((m) => m.name).join(", ")})
+            </span>
+          </div>
+          <Button variant="ghost" onClick={restoreDefaults} loading={restoring}>
+            Restaurar
+          </Button>
+        </div>
+      )}
 
       {loading ? (
         <div className="py-16">
