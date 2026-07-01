@@ -23,6 +23,7 @@ export const API_ENDPOINTS = {
     BASE: "/investments",
     SUMMARY: "/investments/summary",
     TRANSACTIONS: "/investments/transactions",
+    MARKET_REFRESH: "/investments/market/refresh",
   },
 } as const;
 

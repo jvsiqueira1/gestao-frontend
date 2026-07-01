@@ -1,13 +1,47 @@
 export type InvestmentType = "renda_fixa" | "tesouro" | "acoes" | "fiis" | "fundos" | "cripto" | "outros";
 export type TxType = "aporte" | "resgate" | "dividendo" | "juros";
-export type ValuationMode = "manual" | "auto_fixed" | "quote";
+export type ValuationMode = "manual" | "auto_fixed" | "quote" | "cvm_fund";
 export type IndexType = "cdi" | "prefixado" | "ipca";
+export type FundKind = "fi" | "fii" | "fidc";
 
 export const VALUATION_MODES: { key: ValuationMode; label: string; hint: string }[] = [
   { key: "auto_fixed", label: "Renda fixa automática", hint: "CDI, prefixado ou IPCA+ — calcula sozinho" },
   { key: "quote", label: "Cotação de mercado", hint: "Ações, FIIs e cripto pelo preço atual" },
+  { key: "cvm_fund", label: "Fundo CVM (cota oficial)", hint: "Busca a cota na CVM pelo CNPJ — sem atualização manual" },
   { key: "manual", label: "Manual", hint: "Você atualiza o valor quando quiser" },
 ];
+
+export const FUND_KINDS: { key: FundKind; label: string; freq: string }[] = [
+  { key: "fi", label: "Fundo (FI/FIF)", freq: "cota diária" },
+  { key: "fii", label: "FII", freq: "cota mensal" },
+  { key: "fidc", label: "FIDC", freq: "cota mensal por subclasse" },
+];
+
+export const fundKindMeta = (key: string | null | undefined) =>
+  FUND_KINDS.find((k) => k.key === key) || null;
+
+// Máscara progressiva de CNPJ: 52890602000165 -> 52.890.602/0001-65
+export const formatCnpjInput = (s: string) => {
+  const d = s.replace(/\D/g, "").slice(0, 14);
+  let out = d;
+  if (d.length > 2) out = `${d.slice(0, 2)}.${d.slice(2)}`;
+  if (d.length > 5) out = `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+  if (d.length > 8) out = `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  if (d.length > 12) out = `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+  return out;
+};
+
+export const isValidCnpj = (s: string) => {
+  const d = s.replace(/\D/g, "");
+  if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+  const calc = (len: number) => {
+    const weights = len === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = weights.reduce((acc, w, i) => acc + w * Number(d[i]), 0);
+    const rest = sum % 11;
+    return rest < 2 ? 0 : 11 - rest;
+  };
+  return calc(12) === Number(d[12]) && calc(13) === Number(d[13]);
+};
 
 export const INDEX_TYPES: { key: IndexType; label: string; rateLabel: string; rateSuffix: string }[] = [
   { key: "cdi", label: "% do CDI", rateLabel: "% do CDI", rateSuffix: "% do CDI" },
@@ -56,6 +90,11 @@ export interface Investment {
   rate: number | null;
   maturity_date: string | null;
   tax_exempt: boolean;
+  cnpj: string | null;
+  fund_kind: FundKind | null;
+  fund_subclass: string | null;
+  last_quote_date: string | null;
+  last_quote_value: number | null;
   created_at: string;
   updated_at: string;
   total_aportes: number;
