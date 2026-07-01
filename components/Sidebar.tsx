@@ -62,10 +62,10 @@ export default function Sidebar() {
           padding: "8px 10px",
           borderRadius: 8,
           fontSize: 13,
-          color: active ? "var(--fg)" : "var(--fg-soft)",
-          fontWeight: 500,
+          color: active ? "var(--accent-ink)" : "var(--fg-soft)",
+          fontWeight: active ? 600 : 500,
           position: "relative",
-          background: active ? "var(--surface)" : "transparent",
+          background: active ? "var(--accent-soft)" : "transparent",
           transition: "background 0.15s, color 0.15s",
         }}
       >
@@ -184,8 +184,8 @@ export default function Sidebar() {
               {user.email}
             </span>
           </div>
-          <button onClick={logout} aria-label="Sair" className="btn btn-ghost btn-icon btn-sm">
-            <SignOut size={14} />
+          <button onClick={logout} aria-label="Sair" className="btn btn-ghost btn-icon">
+            <SignOut size={16} />
           </button>
         </div>
       </div>

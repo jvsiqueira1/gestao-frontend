@@ -52,6 +52,8 @@ export default function Dashboard() {
   const [addValueAmount, setAddValueAmount] = useState("");
   const [addValueLoading, setAddValueLoading] = useState(false);
 
+  const [selectedCategory, setSelectedCategory] = useState<{ id?: number; name: string } | null>(null);
+
   const goPrev = () => {
     if (month === 1) {
       setMonth(12);
@@ -89,18 +91,32 @@ export default function Dashboard() {
     enabled: !!token,
   });
 
-  const { data: recentExpenses = [] } = useQuery<any[]>({
-    queryKey: ["recent-expenses", month, year, token],
+  const { data: monthExpenses = [] } = useQuery<any[]>({
+    queryKey: ["month-expenses", month, year, token],
     queryFn: async () => {
       const res = await fetch(`${apiUrl(API_ENDPOINTS.FINANCE.EXPENSE)}?month=${month}&year=${year}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return [];
       const arr = await res.json();
-      return Array.isArray(arr) ? arr.slice(0, 6) : [];
+      // Somente lançamentos realizados (alinha com o donut, que soma a tabela expense).
+      return Array.isArray(arr) ? arr.filter((e: any) => !e.pending) : [];
     },
     enabled: !!token,
   });
+  const recentExpenses = monthExpenses.slice(0, 6);
+
+  const categoryExpenses = selectedCategory
+    ? monthExpenses.filter((e: any) =>
+        selectedCategory.id != null
+          ? e.category_id === selectedCategory.id
+          : (e.category_name || null) === selectedCategory.name
+      )
+    : [];
+  const categoryExpensesTotal = categoryExpenses.reduce(
+    (s: number, e: any) => s + (parseFloat(String(e.value)) || 0),
+    0
+  );
 
   const monthlyIncome = data?.monthlyIncome || 0;
   const monthlyExpense = data?.monthlyExpense || 0;
@@ -113,7 +129,13 @@ export default function Dashboard() {
       expense: m.expense || 0,
     })) || [];
 
-  const categoryData: { name: string; value: number }[] = data?.categoryData?.slice(0, 8) || [];
+  const categoryData: { id?: number; name: string; value: number; color?: string }[] = (
+    data?.categoryData?.slice(0, 8) || []
+  ).map((c: any) => ({
+    ...c,
+    // cor salva tem prioridade; senão o mesmo hash usado nos chips (donut e chip batem)
+    color: c.color || categoryColor(c.id ?? c.name),
+  }));
 
   const submitGoal = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,7 +304,10 @@ export default function Dashboard() {
                   Sem despesas no mês.
                 </div>
               ) : (
-                <Donut data={categoryData} />
+                <Donut
+                  data={categoryData}
+                  onSliceClick={(d) => setSelectedCategory({ id: d.id, name: d.name })}
+                />
               )}
             </Card>
           </div>
@@ -451,17 +476,17 @@ export default function Dashboard() {
                             });
                             setShowGoalModal(true);
                           }}
-                          className="btn btn-ghost btn-icon btn-sm"
+                          className="btn btn-ghost btn-icon"
                           aria-label="Editar"
                         >
-                          <PencilSimple size={13} />
+                          <PencilSimple size={16} />
                         </button>
                         <button
                           onClick={() => deleteGoal(goal.id)}
-                          className="btn btn-ghost btn-icon btn-sm"
+                          className="btn btn-ghost btn-icon"
                           aria-label="Excluir"
                         >
-                          <Trash size={13} />
+                          <Trash size={16} />
                         </button>
                       </div>
                     </div>
@@ -587,7 +612,10 @@ export default function Dashboard() {
                       </td>
                       <td>
                         {e.category_name && (
-                          <CatChip name={e.category_name} color={categoryColor(e.category_id || e.category_name)} />
+                          <CatChip
+                            name={e.category_name}
+                            color={categoryColor(e.category_id ?? e.category_name, e.category_color)}
+                          />
                         )}
                       </td>
                       <td style={{ color: "var(--fg-soft)" }}>{fmtDate(e.date)}</td>
@@ -692,6 +720,51 @@ export default function Dashboard() {
               </Button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {selectedCategory && (
+        <Modal
+          title={selectedCategory.name}
+          subtitle={`Despesas de ${MONTH_NAMES_FULL[month - 1]} de ${year}`}
+          onClose={() => setSelectedCategory(null)}
+        >
+          {categoryExpenses.length === 0 ? (
+            <div className="text-sm" style={{ color: "var(--muted)", textAlign: "center", padding: "16px 0" }}>
+              Sem despesas nesta categoria neste mês.
+            </div>
+          ) : (
+            <>
+              <div className="grid" style={{ maxHeight: "56vh", overflowY: "auto" }}>
+                {categoryExpenses.map((e: any) => (
+                  <div
+                    key={e.id}
+                    className="flex items-center justify-between gap-3"
+                    style={{ padding: "9px 0", borderBottom: "1px solid var(--border-soft)" }}
+                  >
+                    <div className="min-w-0">
+                      <div style={{ fontWeight: 500 }} className="truncate">
+                        {e.description}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "var(--muted)" }}>{fmtDate(e.date)}</div>
+                    </div>
+                    <span
+                      className="num"
+                      style={{ color: "var(--neg)", fontWeight: 500, whiteSpace: "nowrap" }}
+                    >
+                      −{fmtBRL(parseFloat(String(e.value))).replace("R$", "").trim()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-3" style={{ fontSize: 13 }}>
+                <span style={{ color: "var(--muted)" }}>
+                  {categoryExpenses.length} lançamento{categoryExpenses.length > 1 ? "s" : ""}
+                </span>
+                <b className="num">{fmtBRL(categoryExpensesTotal)}</b>
+              </div>
+            </>
+          )}
         </Modal>
       )}
     </div>

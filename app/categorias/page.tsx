@@ -8,12 +8,13 @@ import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import Modal from "../../components/ui/Modal";
 import Segmented from "../../components/ui/Segmented";
-import { categoryColor } from "../../components/ui/CatChip";
+import { categoryColor, PALETTE } from "../../components/ui/CatChip";
 
 interface Category {
   id: number;
   name: string;
   type: "expense" | "income";
+  color?: string | null;
 }
 
 interface Stat {
@@ -36,6 +37,7 @@ export default function CategoriasPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formName, setFormName] = useState("");
+  const [formColor, setFormColor] = useState<string>(PALETTE[0]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [missingDefaults, setMissingDefaults] = useState<MissingDefault[]>([]);
@@ -109,6 +111,9 @@ export default function CategoriasPage() {
   const openCreate = () => {
     setEditingId(null);
     setFormName("");
+    // sugere uma cor da paleta ainda não usada nas categorias da aba atual
+    const used = new Set(categories.filter((c) => c.type === tab && c.color).map((c) => c.color));
+    setFormColor(PALETTE.find((c) => !used.has(c)) || PALETTE[0]);
     setError("");
     setShowForm(true);
   };
@@ -116,6 +121,7 @@ export default function CategoriasPage() {
   const openEdit = (c: Category) => {
     setEditingId(c.id);
     setFormName(c.name);
+    setFormColor(c.color || categoryColor(c.id));
     setError("");
     setShowForm(true);
   };
@@ -132,7 +138,7 @@ export default function CategoriasPage() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: formName, type: tab }),
+        body: JSON.stringify({ name: formName, type: tab, color: formColor || null }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -158,7 +164,7 @@ export default function CategoriasPage() {
   const list = categories.filter((c) => c.type === tab);
   const missingForTab = missingDefaults.filter((m) => m.type === tab);
   const breakdown = list
-    .map((c) => ({ id: c.id, name: c.name, value: stats[c.id]?.total || 0, color: categoryColor(c.id) }))
+    .map((c) => ({ id: c.id, name: c.name, value: stats[c.id]?.total || 0, color: categoryColor(c.id, c.color) }))
     .filter((b) => b.value > 0)
     .sort((a, b) => b.value - a.value);
   const totalBreak = breakdown.reduce((s, b) => s + b.value, 0);
@@ -241,7 +247,7 @@ export default function CategoriasPage() {
                     width: 28,
                     height: 28,
                     borderRadius: 8,
-                    background: categoryColor(c.id),
+                    background: categoryColor(c.id, c.color),
                     fontSize: 12,
                   }}
                 >
@@ -256,17 +262,17 @@ export default function CategoriasPage() {
                 <div className="flex gap-1">
                   <button
                     onClick={() => openEdit(c)}
-                    className="btn btn-ghost btn-icon btn-sm"
+                    className="btn btn-ghost btn-icon"
                     aria-label="Editar"
                   >
-                    <PencilSimple size={13} />
+                    <PencilSimple size={16} />
                   </button>
                   <button
                     onClick={() => remove(c.id)}
-                    className="btn btn-ghost btn-icon btn-sm"
+                    className="btn btn-ghost btn-icon"
                     aria-label="Excluir"
                   >
-                    <Trash size={13} />
+                    <Trash size={16} />
                   </button>
                 </div>
               </div>
@@ -350,6 +356,56 @@ export default function CategoriasPage() {
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
               />
+            </div>
+            <div className="field">
+              <label>Cor</label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {PALETTE.map((c) => {
+                  const active = formColor.toLowerCase() === c.toLowerCase();
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      aria-label={c}
+                      onClick={() => setFormColor(c)}
+                      className="grid place-items-center"
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 999,
+                        background: c,
+                        cursor: "pointer",
+                        border: active ? "2px solid var(--fg)" : "2px solid transparent",
+                        boxShadow: active ? "0 0 0 2px var(--bg-elev)" : "none",
+                      }}
+                    />
+                  );
+                })}
+                <label
+                  className="grid place-items-center"
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 999,
+                    border: "1px dashed var(--border)",
+                    cursor: "pointer",
+                    position: "relative",
+                    overflow: "hidden",
+                    background: PALETTE.includes(formColor) ? "transparent" : formColor,
+                  }}
+                  title="Cor personalizada"
+                >
+                  {PALETTE.includes(formColor) && (
+                    <Plus size={13} style={{ color: "var(--muted)" }} />
+                  )}
+                  <input
+                    type="color"
+                    value={formColor}
+                    onChange={(e) => setFormColor(e.target.value)}
+                    style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }}
+                  />
+                </label>
+              </div>
             </div>
             {error && (
               <p className="text-xs" style={{ color: "var(--neg)" }}>

@@ -19,7 +19,14 @@ const PALETTE = [
   "#a855f7",
 ];
 
-export function categoryColor(idOrName: string | number): string {
+export { PALETTE };
+
+/**
+ * Cor de uma categoria. Se `explicitColor` (cor salva no banco) for informada,
+ * ela tem prioridade; caso contrário cai no hash determinístico sobre id/nome.
+ */
+export function categoryColor(idOrName: string | number, explicitColor?: string | null): string {
+  if (explicitColor) return explicitColor;
   const s = String(idOrName);
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
