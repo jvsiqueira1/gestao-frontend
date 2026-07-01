@@ -20,6 +20,7 @@ import {
   TX_TYPES,
   VALUATION_MODES,
   INDEX_TYPES,
+  FUND_KINDS,
   Investment,
   InvestmentDetail,
   InvestmentSummary,
@@ -27,10 +28,14 @@ import {
   InvestmentType,
   ValuationMode,
   IndexType,
+  FundKind,
   TxType,
   investmentTypeMeta,
   indexTypeMeta,
+  fundKindMeta,
   txTypeMeta,
+  formatCnpjInput,
+  isValidCnpj,
 } from "../../lib/investments";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
@@ -55,7 +60,15 @@ function yieldDescriptor(i: Investment): string | null {
     if (i.index_type === "ipca") return `IPCA + ${i.rate}%`;
   }
   if (i.valuation_mode === "quote" && i.ticker) return i.ticker.toUpperCase();
+  if (i.valuation_mode === "cvm_fund") return `Cota CVM · ${(i.fund_kind || "fi").toUpperCase()}`;
   return null;
+}
+
+// Cota do fundo CVM está defasada além do esperado? (fi: diária; fii/fidc: mensal ~2 meses)
+function quoteIsStale(i: Investment): boolean {
+  if (i.valuation_mode !== "cvm_fund" || !i.last_quote_date) return false;
+  const ageDays = (Date.now() - new Date(i.last_quote_date).getTime()) / 86400000;
+  return i.fund_kind === "fi" ? ageDays > 7 : ageDays > 65;
 }
 
 export default function InvestimentosPage() {
@@ -84,6 +97,9 @@ export default function InvestimentosPage() {
     rate: string;
     maturity_date: string;
     tax_exempt: boolean;
+    cnpj: string;
+    fund_kind: FundKind;
+    fund_subclass: string;
   }>({
     name: "",
     ticker: "",
@@ -95,6 +111,9 @@ export default function InvestimentosPage() {
     rate: "",
     maturity_date: "",
     tax_exempt: false,
+    cnpj: "",
+    fund_kind: "fi",
+    fund_subclass: "",
   });
 
   const [detailId, setDetailId] = useState<number | null>(null);
@@ -119,7 +138,21 @@ export default function InvestimentosPage() {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+
+  const refreshMarket = async () => {
+    setRefreshing(true);
+    try {
+      await fetch(apiUrl(API_ENDPOINTS.INVESTMENTS.MARKET_REFRESH), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await fetchAll();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -188,6 +221,9 @@ export default function InvestimentosPage() {
       rate: "",
       maturity_date: "",
       tax_exempt: false,
+      cnpj: "",
+      fund_kind: "fi",
+      fund_subclass: "",
     });
     setError("");
     setShowAssetModal(true);
@@ -206,6 +242,9 @@ export default function InvestimentosPage() {
       rate: i.rate != null ? String(i.rate) : "",
       maturity_date: i.maturity_date ? new Date(i.maturity_date).toISOString().split("T")[0] : "",
       tax_exempt: !!i.tax_exempt,
+      cnpj: i.cnpj ? formatCnpjInput(i.cnpj) : "",
+      fund_kind: i.fund_kind || "fi",
+      fund_subclass: i.fund_subclass || "",
     });
     setError("");
     setShowAssetModal(true);
@@ -227,6 +266,10 @@ export default function InvestimentosPage() {
 
   const submitAsset = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (assetForm.valuation_mode === "cvm_fund" && !isValidCnpj(assetForm.cnpj)) {
+      setError("CNPJ do fundo inválido.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -244,6 +287,12 @@ export default function InvestimentosPage() {
             ? assetForm.maturity_date
             : null,
         tax_exempt: assetForm.valuation_mode === "auto_fixed" ? assetForm.tax_exempt : false,
+        cnpj: assetForm.valuation_mode === "cvm_fund" ? assetForm.cnpj : null,
+        fund_kind: assetForm.valuation_mode === "cvm_fund" ? assetForm.fund_kind : null,
+        fund_subclass:
+          assetForm.valuation_mode === "cvm_fund" && assetForm.fund_kind === "fidc"
+            ? assetForm.fund_subclass || null
+            : null,
       };
       const url = editAssetId
         ? `${apiUrl(API_ENDPOINTS.INVESTMENTS.BASE)}/${editAssetId}`
@@ -398,6 +447,15 @@ export default function InvestimentosPage() {
               <CaretRight size={14} />
             </button>
           </div>
+          <button
+            className="btn btn-outline btn-icon"
+            onClick={refreshMarket}
+            disabled={refreshing}
+            aria-label="Atualizar cotações"
+            title="Atualizar cotações e cotas CVM"
+          >
+            <ArrowsClockwise size={14} className={refreshing ? "animate-spin" : undefined} />
+          </button>
           <button className="btn btn-outline" onClick={() => openTxModal()}>
             <Receipt size={14} /> Novo lançamento
           </button>
@@ -560,13 +618,27 @@ export default function InvestimentosPage() {
                           <div>
                             <div style={{ fontWeight: 500 }}>{i.name}</div>
                             <div style={{ fontSize: 10.5, color: "var(--muted)" }}>
-                              {[yieldDescriptor(i), i.broker].filter(Boolean).join(" · ")}
+                              {[
+                                yieldDescriptor(i),
+                                i.valuation_mode === "cvm_fund" && i.last_quote_date
+                                  ? `cota de ${fmtDate(i.last_quote_date)}`
+                                  : null,
+                                i.broker,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <InvestmentTypePill type={i.type} />
+                        <div className="flex items-center gap-1.5">
+                          <InvestmentTypePill type={i.type} />
+                          {i.valuation_mode === "cvm_fund" && i.fund_kind !== "fi" && (
+                            <Pill tone="info">mensal</Pill>
+                          )}
+                          {quoteIsStale(i) && <Pill tone="neg">defasada</Pill>}
+                        </div>
                       </td>
                       <td className="num" style={{ textAlign: "right", color: "var(--fg-soft)" }}>
                         {fmtBRL(i.aportes_liq).replace("R$", "").trim()}
@@ -795,6 +867,58 @@ export default function InvestimentosPage() {
                 CoinGecko (ex.: bitcoin, ethereum).
               </p>
             )}
+            {assetForm.valuation_mode === "cvm_fund" && (
+              <>
+                <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                  <div className="field">
+                    <label>CNPJ do fundo</label>
+                    <input
+                      className="input"
+                      required
+                      value={assetForm.cnpj}
+                      onChange={(e) => setAssetForm({ ...assetForm, cnpj: formatCnpjInput(e.target.value) })}
+                      placeholder="00.000.000/0000-00"
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Tipo de fundo</label>
+                    <select
+                      className="select"
+                      value={assetForm.fund_kind}
+                      onChange={(e) => setAssetForm({ ...assetForm, fund_kind: e.target.value as FundKind })}
+                    >
+                      {FUND_KINDS.map((k) => (
+                        <option key={k.key} value={k.key}>
+                          {k.label} — {k.freq}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {assetForm.fund_kind === "fidc" && (
+                  <div className="field">
+                    <label>Subclasse</label>
+                    <input
+                      className="input"
+                      required
+                      value={assetForm.fund_subclass}
+                      onChange={(e) => setAssetForm({ ...assetForm, fund_subclass: e.target.value })}
+                      placeholder="Subclasse Senior Série 1"
+                    />
+                    <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                      Copie exatamente como aparece no informe/extrato do fundo.
+                    </span>
+                  </div>
+                )}
+                <p style={{ fontSize: 11.5, color: "var(--muted)" }}>
+                  A cota oficial vem dos dados abertos da CVM.{" "}
+                  {assetForm.fund_kind === "fi"
+                    ? "Fundos FI têm cota diária (defasagem de poucos dias)."
+                    : "FII/FIDC têm cota mensal com ~1–2 meses de defasagem — normal."}
+                </p>
+              </>
+            )}
 
             <div className="field">
               <label>Corretora (opcional)</label>
@@ -998,6 +1122,12 @@ export default function InvestimentosPage() {
                 {detail.maturity_date && (
                   <MiniStat label="Vencimento" value={fmtDate(detail.maturity_date)} />
                 )}
+                {detail.valuation_mode === "cvm_fund" && detail.last_quote_date && (
+                  <MiniStat
+                    label="Última cota CVM"
+                    value={`${detail.last_quote_value != null ? detail.last_quote_value.toFixed(4) : "—"} · ${fmtDate(detail.last_quote_date)}`}
+                  />
+                )}
               </div>
 
               {detail.positions && detail.positions.length > 0 ? (
@@ -1036,13 +1166,19 @@ export default function InvestimentosPage() {
                     </table>
                   </div>
                   <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
-                    Cálculo automático via CDI/IPCA do Banco Central. IR/IOF estimados; IOF zera após 30 dias.
+                    {detail.valuation_mode === "cvm_fund"
+                      ? "Cota oficial CVM. IR regressivo estimado, sem come-cotas; IOF zera após 30 dias."
+                      : "Cálculo automático via CDI/IPCA do Banco Central. IR/IOF estimados; IOF zera após 30 dias."}
                   </p>
                 </div>
               ) : (
                 <p className="text-sm" style={{ color: "var(--muted)" }}>
                   {detail.valuation_mode === "quote"
                     ? "Valor calculado pela cotação de mercado × quantidade."
+                    : detail.valuation_mode === "cvm_fund"
+                    ? !detail.last_quote_date
+                      ? "Cota da CVM ainda não disponível — exibindo o custo dos aportes."
+                      : `Valor bruto pela cota patrimonial oficial da CVM (${detail.fund_kind === "fi" ? "diária" : "mensal"}); sem estimativa de impostos.`
                     : "Sem detalhamento por compra para este ativo."}
                 </p>
               )}
