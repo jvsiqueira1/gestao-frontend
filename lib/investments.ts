@@ -1,5 +1,24 @@
 export type InvestmentType = "renda_fixa" | "tesouro" | "acoes" | "fiis" | "fundos" | "cripto" | "outros";
 export type TxType = "aporte" | "resgate" | "dividendo" | "juros";
+export type ValuationMode = "manual" | "auto_fixed" | "quote";
+export type IndexType = "cdi" | "prefixado" | "ipca";
+
+export const VALUATION_MODES: { key: ValuationMode; label: string; hint: string }[] = [
+  { key: "auto_fixed", label: "Renda fixa automática", hint: "CDI, prefixado ou IPCA+ — calcula sozinho" },
+  { key: "quote", label: "Cotação de mercado", hint: "Ações, FIIs e cripto pelo preço atual" },
+  { key: "manual", label: "Manual", hint: "Você atualiza o valor quando quiser" },
+];
+
+export const INDEX_TYPES: { key: IndexType; label: string; rateLabel: string; rateSuffix: string }[] = [
+  { key: "cdi", label: "% do CDI", rateLabel: "% do CDI", rateSuffix: "% do CDI" },
+  { key: "prefixado", label: "Prefixado", rateLabel: "Taxa (% a.a.)", rateSuffix: "% a.a." },
+  { key: "ipca", label: "IPCA +", rateLabel: "Spread (% a.a.)", rateSuffix: "% a.a. + IPCA" },
+];
+
+export const valuationModeMeta = (key: string) =>
+  VALUATION_MODES.find((m) => m.key === key) || VALUATION_MODES[2];
+export const indexTypeMeta = (key: string | null | undefined) =>
+  INDEX_TYPES.find((t) => t.key === key) || null;
 
 export const INVESTMENT_TYPES: { key: InvestmentType; label: string; color: string }[] = [
   { key: "renda_fixa", label: "Renda fixa", color: "#3b82f6" },
@@ -32,6 +51,11 @@ export interface Investment {
   broker: string | null;
   notes: string | null;
   archived: boolean;
+  valuation_mode: ValuationMode;
+  index_type: IndexType | null;
+  rate: number | null;
+  maturity_date: string | null;
+  tax_exempt: boolean;
   created_at: string;
   updated_at: string;
   total_aportes: number;
@@ -43,6 +67,23 @@ export interface Investment {
   current_value_date: string | null;
   rentabilidade: number;
   rentabilidade_pct: number;
+}
+
+export interface InvestmentPosition {
+  date: string;
+  invested: number;
+  days: number;
+  gross: number;
+  rendimento: number;
+  iof: number;
+  ir: number;
+  liquido: number;
+}
+
+export interface InvestmentDetail extends Investment {
+  transactions: InvestmentTransaction[];
+  valuations: Valuation[];
+  positions: InvestmentPosition[];
 }
 
 export interface InvestmentTransaction {

@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -25,9 +26,10 @@ interface LineIEProps {
 
 const tickStyle = { fontSize: 11, fill: "var(--muted)" };
 
-function ChartBody({ data }: { data: LineIEDatum[] }) {
+function ChartBody({ data, size }: { data: LineIEDatum[]; size?: { w: number; h: number } }) {
+  const dims = size ? { width: size.w, height: size.h } : {};
   return (
-    <AreaChart data={data} margin={{ top: 8, right: 6, left: 6, bottom: 0 }}>
+    <AreaChart data={data} {...dims} margin={{ top: 8, right: 6, left: 6, bottom: 0 }}>
       <defs>
         <linearGradient id="lineie-pos" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--pos)" stopOpacity={0.18} />
@@ -59,8 +61,9 @@ function ChartBody({ data }: { data: LineIEDatum[] }) {
           fontSize: 12,
           padding: "8px 10px",
           color: "var(--fg)",
-          boxShadow: "0 4px 14px oklch(0% 0 0 / 0.08)",
+          boxShadow: "0 4px 14px oklch(0% 0 0 / 0.20)",
         }}
+        itemStyle={{ color: "var(--fg)" }}
         labelStyle={{ color: "var(--fg-soft)", marginBottom: 4 }}
         formatter={(v: any, name: any) => [fmtBRL(Number(v)), name === "income" ? "Receitas" : "Despesas"]}
       />
@@ -87,12 +90,28 @@ function ChartBody({ data }: { data: LineIEDatum[] }) {
 }
 
 export default function LineIE({ data, height = 220, fill = false }: LineIEProps) {
+  // No modo `fill` medimos a largura/altura do container e renderizamos o
+  // AreaChart com dimensões numéricas explícitas, sem ResponsiveContainer.
+  // Motivo: o ResponsiveContainer do Recharts v3 não renderiza quando é filho
+  // direto de um flex item (.card-fill) — media 0 e o gráfico saía vazio.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    if (!fill) return;
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fill]);
+
   if (fill) {
     return (
-      <div className="card-fill" style={{ minHeight: height }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <ChartBody data={data} />
-        </ResponsiveContainer>
+      <div ref={wrapRef} className="card-fill" style={{ minHeight: height, overflow: "hidden" }}>
+        {size.w > 0 && size.h > 0 ? <ChartBody data={data} size={size} /> : null}
       </div>
     );
   }

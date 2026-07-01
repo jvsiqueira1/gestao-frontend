@@ -11,6 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { useAuth } from "../../context/AuthContext";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
+import { bulkDelete } from "../../lib/bulk";
 import { fmtBRL, fmtDate, MONTH_NAMES_FULL } from "../../lib/format";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
@@ -27,6 +28,7 @@ interface Income {
   date: string;
   category_id: number | null;
   category_name?: string;
+  category_color?: string | null;
   isFixed?: boolean;
   pending?: boolean;
   recurrenceType?: string;
@@ -49,6 +51,7 @@ interface Category {
   id: number;
   name: string;
   type: string;
+  color?: string | null;
 }
 
 type ViewMode = "all" | "fixed";
@@ -83,6 +86,8 @@ export default function RendasPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -92,6 +97,7 @@ export default function RendasPage() {
 
   const fetchData = async () => {
     setLoading(true);
+    setSelectedIds(new Set());
     try {
       const params = `?month=${month}&year=${year}`;
       const [iRes, fRes, cRes] = await Promise.all([
@@ -276,6 +282,44 @@ export default function RendasPage() {
     }
   };
 
+  const selectableIds = occurrencesFiltered
+    .filter((e) => typeof e.id === "number")
+    .map((e) => e.id as number);
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+
+  const toggleAll = () => {
+    setSelectedIds((prev) =>
+      selectableIds.every((id) => prev.has(id)) ? new Set() : new Set(selectableIds)
+    );
+  };
+  const toggleId = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const bulkRemove = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Excluir ${ids.length} renda${ids.length > 1 ? "s" : ""}? Esta ação não pode ser desfeita.`))
+      return;
+    setBulkDeleting(true);
+    try {
+      const { fail } = await bulkDelete(
+        ids,
+        (id) => `${apiUrl(API_ENDPOINTS.FINANCE.INCOME)}/${id}`,
+        token
+      );
+      if (fail.length) alert(`${fail.length} renda(s) não puderam ser excluídas.`);
+      setSelectedIds(new Set());
+      fetchData();
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const createLabel = view === "fixed" ? "Nova renda fixa" : "Nova renda";
   const modalTitle =
     editTarget?.kind === "fixed"
@@ -382,6 +426,33 @@ export default function RendasPage() {
           </div>
         </div>
 
+        {view === "all" && selectedIds.size > 0 && (
+          <div
+            className="flex items-center justify-between gap-3"
+            style={{
+              padding: "10px 16px",
+              borderBottom: "1px solid var(--border-soft)",
+              background: "var(--surface)",
+            }}
+          >
+            <span style={{ fontSize: 13 }}>
+              <b className="num">{selectedIds.size}</b> selecionada{selectedIds.size > 1 ? "s" : ""}
+            </span>
+            <div className="flex items-center gap-2">
+              <button className="btn btn-ghost btn-sm" onClick={() => setSelectedIds(new Set())}>
+                Limpar
+              </button>
+              <button
+                className="btn btn-destructive btn-sm"
+                onClick={bulkRemove}
+                disabled={bulkDeleting}
+              >
+                <Trash size={14} /> Excluir selecionadas
+              </button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="p-12">
             <LoadingSpinner size="lg" />
@@ -444,7 +515,15 @@ export default function RendasPage() {
                         </div>
                       </td>
                       <td>
-                        {catName && <CatChip name={catName} color={categoryColor(f.category_id || catName)} />}
+                        {catName && (
+                          <CatChip
+                            name={catName}
+                            color={categoryColor(
+                              f.category_id ?? catName,
+                              categories.find((c) => c.id === f.category_id)?.color
+                            )}
+                          />
+                        )}
                       </td>
                       <td>
                         <Pill tone="info">{f.recurrenceType === "yearly" ? "anual" : "mensal"}</Pill>
@@ -482,6 +561,15 @@ export default function RendasPage() {
           <table className="tbl">
             <thead>
               <tr>
+                <th style={{ width: 36 }}>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Selecionar todos"
+                    style={{ cursor: "pointer" }}
+                  />
+                </th>
                 <th style={{ width: "40%" }}>Descrição</th>
                 <th>Categoria</th>
                 <th>Data</th>
@@ -492,7 +580,18 @@ export default function RendasPage() {
             </thead>
             <tbody>
               {occurrencesFiltered.map((e) => (
-                <tr key={e.id}>
+                <tr key={e.id} style={typeof e.id === "number" && selectedIds.has(e.id) ? { background: "var(--surface)" } : undefined}>
+                  <td style={{ width: 36 }}>
+                    {typeof e.id === "number" && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(e.id)}
+                        onChange={() => toggleId(e.id as number)}
+                        aria-label="Selecionar"
+                        style={{ cursor: "pointer" }}
+                      />
+                    )}
+                  </td>
                   <td>
                     <div className="flex items-center gap-2.5">
                       <span
@@ -530,7 +629,10 @@ export default function RendasPage() {
                   </td>
                   <td>
                     {e.category_name && (
-                      <CatChip name={e.category_name} color={categoryColor(e.category_id || e.category_name)} />
+                      <CatChip
+                        name={e.category_name}
+                        color={categoryColor(e.category_id ?? e.category_name, e.category_color)}
+                      />
                     )}
                   </td>
                   <td style={{ color: "var(--fg-soft)" }}>{fmtDate(e.date)}</td>

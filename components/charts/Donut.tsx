@@ -6,6 +6,7 @@ export interface DonutDatum {
   name: string;
   value: number;
   color?: string;
+  id?: number;
 }
 
 interface DonutProps {
@@ -13,6 +14,7 @@ interface DonutProps {
   height?: number;
   centerLabel?: string;
   centerValue?: string;
+  onSliceClick?: (datum: DonutDatum) => void;
 }
 
 /**
@@ -36,8 +38,9 @@ function sliceColor(i: number): string {
   return SLICE_PALETTE[i % SLICE_PALETTE.length];
 }
 
-export default function Donut({ data, height = 240, centerLabel, centerValue }: DonutProps) {
+export default function Donut({ data, height = 240, centerLabel, centerValue, onSliceClick }: DonutProps) {
   const total = data.reduce((s, d) => s + d.value, 0);
+  const clickable = !!onSliceClick;
   return (
     <div className="relative">
       <ResponsiveContainer width="100%" height={height}>
@@ -53,6 +56,8 @@ export default function Donut({ data, height = 240, centerLabel, centerValue }: 
             paddingAngle={2}
             stroke="var(--bg-elev)"
             strokeWidth={2}
+            onClick={clickable ? (_: any, i: number) => onSliceClick!(data[i]) : undefined}
+            style={{ cursor: clickable ? "pointer" : "default", outline: "none" }}
           >
             {data.map((d, i) => (
               <Cell key={i} fill={d.color || sliceColor(i)} />
@@ -66,7 +71,10 @@ export default function Donut({ data, height = 240, centerLabel, centerValue }: 
               fontSize: 12,
               padding: "8px 10px",
               color: "var(--fg)",
+              boxShadow: "0 4px 14px oklch(0% 0 0 / 0.20)",
             }}
+            itemStyle={{ color: "var(--fg)" }}
+            labelStyle={{ color: "var(--fg-soft)" }}
             formatter={(v: any, name: any) => [fmtBRL(Number(v)), name]}
           />
         </PieChart>
@@ -106,7 +114,8 @@ export default function Donut({ data, height = 240, centerLabel, centerValue }: 
             <div
               key={i}
               className="flex items-center justify-between gap-2 text-xs"
-              style={{ padding: "4px 0" }}
+              style={{ padding: "4px 0", cursor: clickable ? "pointer" : "default" }}
+              onClick={clickable ? () => onSliceClick!(d) : undefined}
             >
               <span className="inline-flex items-center gap-2 truncate">
                 <span

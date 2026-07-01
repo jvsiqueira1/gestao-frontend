@@ -10,6 +10,7 @@ import {
   MagnifyingGlass,
   CaretLeft,
   CaretRight,
+  Eye,
 } from "@phosphor-icons/react";
 import { useAuth } from "../../context/AuthContext";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
@@ -17,18 +18,25 @@ import { fmtBRL, fmtDate, MONTH_NAMES_FULL } from "../../lib/format";
 import {
   INVESTMENT_TYPES,
   TX_TYPES,
+  VALUATION_MODES,
+  INDEX_TYPES,
   Investment,
+  InvestmentDetail,
   InvestmentSummary,
   InvestmentTransaction,
   InvestmentType,
+  ValuationMode,
+  IndexType,
   TxType,
   investmentTypeMeta,
+  indexTypeMeta,
   txTypeMeta,
 } from "../../lib/investments";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import Modal from "../../components/ui/Modal";
 import Segmented from "../../components/ui/Segmented";
+import Toggle from "../../components/ui/Toggle";
 import Pill from "../../components/ui/Pill";
 import InvestmentTypePill from "../../components/ui/InvestmentTypePill";
 import Donut from "../../components/charts/Donut";
@@ -38,6 +46,17 @@ import { Card, CardHead, CardTitle, CardSub } from "../../components/ui/Card";
 type View = "carteira" | "lancamentos";
 
 const today = () => new Date().toISOString().split("T")[0];
+
+// Descrição curta do rendimento/fonte de avaliação, ex.: "110% do CDI", "12% a.a.", ticker.
+function yieldDescriptor(i: Investment): string | null {
+  if (i.valuation_mode === "auto_fixed" && i.index_type && i.rate != null) {
+    if (i.index_type === "cdi") return `${i.rate}% do CDI`;
+    if (i.index_type === "prefixado") return `${i.rate}% a.a.`;
+    if (i.index_type === "ipca") return `IPCA + ${i.rate}%`;
+  }
+  if (i.valuation_mode === "quote" && i.ticker) return i.ticker.toUpperCase();
+  return null;
+}
 
 export default function InvestimentosPage() {
   const { token } = useAuth();
@@ -60,7 +79,27 @@ export default function InvestimentosPage() {
     type: InvestmentType;
     broker: string;
     notes: string;
-  }>({ name: "", ticker: "", type: "renda_fixa", broker: "", notes: "" });
+    valuation_mode: ValuationMode;
+    index_type: IndexType;
+    rate: string;
+    maturity_date: string;
+    tax_exempt: boolean;
+  }>({
+    name: "",
+    ticker: "",
+    type: "renda_fixa",
+    broker: "",
+    notes: "",
+    valuation_mode: "auto_fixed",
+    index_type: "cdi",
+    rate: "",
+    maturity_date: "",
+    tax_exempt: false,
+  });
+
+  const [detailId, setDetailId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<InvestmentDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [showTxModal, setShowTxModal] = useState(false);
   const [txForm, setTxForm] = useState<{
@@ -138,7 +177,18 @@ export default function InvestimentosPage() {
 
   const openCreateAsset = () => {
     setEditAssetId(null);
-    setAssetForm({ name: "", ticker: "", type: "renda_fixa", broker: "", notes: "" });
+    setAssetForm({
+      name: "",
+      ticker: "",
+      type: "renda_fixa",
+      broker: "",
+      notes: "",
+      valuation_mode: "auto_fixed",
+      index_type: "cdi",
+      rate: "",
+      maturity_date: "",
+      tax_exempt: false,
+    });
     setError("");
     setShowAssetModal(true);
   };
@@ -151,9 +201,28 @@ export default function InvestimentosPage() {
       type: i.type,
       broker: i.broker || "",
       notes: i.notes || "",
+      valuation_mode: i.valuation_mode || "manual",
+      index_type: i.index_type || "cdi",
+      rate: i.rate != null ? String(i.rate) : "",
+      maturity_date: i.maturity_date ? new Date(i.maturity_date).toISOString().split("T")[0] : "",
+      tax_exempt: !!i.tax_exempt,
     });
     setError("");
     setShowAssetModal(true);
+  };
+
+  const openDetail = async (i: Investment) => {
+    setDetailId(i.id);
+    setDetail(null);
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`${apiUrl(API_ENDPOINTS.INVESTMENTS.BASE)}/${i.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setDetail(await res.json());
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const submitAsset = async (e: React.FormEvent) => {
@@ -167,6 +236,14 @@ export default function InvestimentosPage() {
         type: assetForm.type,
         broker: assetForm.broker || null,
         notes: assetForm.notes || null,
+        valuation_mode: assetForm.valuation_mode,
+        index_type: assetForm.valuation_mode === "auto_fixed" ? assetForm.index_type : null,
+        rate: assetForm.valuation_mode === "auto_fixed" ? parseFloat(assetForm.rate) : null,
+        maturity_date:
+          assetForm.valuation_mode === "auto_fixed" && assetForm.maturity_date
+            ? assetForm.maturity_date
+            : null,
+        tax_exempt: assetForm.valuation_mode === "auto_fixed" ? assetForm.tax_exempt : false,
       };
       const url = editAssetId
         ? `${apiUrl(API_ENDPOINTS.INVESTMENTS.BASE)}/${editAssetId}`
@@ -482,9 +559,9 @@ export default function InvestimentosPage() {
                           </span>
                           <div>
                             <div style={{ fontWeight: 500 }}>{i.name}</div>
-                            {i.broker && (
-                              <div style={{ fontSize: 10.5, color: "var(--muted)" }}>{i.broker}</div>
-                            )}
+                            <div style={{ fontSize: 10.5, color: "var(--muted)" }}>
+                              {[yieldDescriptor(i), i.broker].filter(Boolean).join(" · ")}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -502,9 +579,14 @@ export default function InvestimentosPage() {
                       </td>
                       <td>
                         <div className="row-actions">
-                          <button aria-label="Atualizar valor" onClick={() => openValModal(i)}>
-                            <ArrowsClockwise size={14} />
+                          <button aria-label="Detalhes" onClick={() => openDetail(i)}>
+                            <Eye size={14} />
                           </button>
+                          {i.valuation_mode === "manual" && (
+                            <button aria-label="Atualizar valor" onClick={() => openValModal(i)}>
+                              <ArrowsClockwise size={14} />
+                            </button>
+                          )}
                           <button aria-label="Novo lançamento" onClick={() => openTxModal(i.id)}>
                             <Receipt size={14} />
                           </button>
@@ -630,6 +712,90 @@ export default function InvestimentosPage() {
                 </select>
               </div>
             </div>
+
+            <div className="field">
+              <label>Como avaliar</label>
+              <select
+                className="select"
+                value={assetForm.valuation_mode}
+                onChange={(e) =>
+                  setAssetForm({ ...assetForm, valuation_mode: e.target.value as ValuationMode })
+                }
+              >
+                {VALUATION_MODES.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                {VALUATION_MODES.find((m) => m.key === assetForm.valuation_mode)?.hint}
+              </span>
+            </div>
+
+            {assetForm.valuation_mode === "auto_fixed" && (
+              <>
+                <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                  <div className="field">
+                    <label>Indexador</label>
+                    <select
+                      className="select"
+                      value={assetForm.index_type}
+                      onChange={(e) =>
+                        setAssetForm({ ...assetForm, index_type: e.target.value as IndexType })
+                      }
+                    >
+                      {INDEX_TYPES.map((t) => (
+                        <option key={t.key} value={t.key}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>{indexTypeMeta(assetForm.index_type)?.rateLabel || "Taxa"}</label>
+                    <input
+                      className="input input-currency"
+                      required
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={assetForm.rate}
+                      onChange={(e) => setAssetForm({ ...assetForm, rate: e.target.value })}
+                      placeholder={
+                        assetForm.index_type === "cdi" ? "110" : assetForm.index_type === "ipca" ? "6" : "12"
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr", alignItems: "end" }}>
+                  <div className="field">
+                    <label>Vencimento (opcional)</label>
+                    <input
+                      className="input"
+                      type="date"
+                      value={assetForm.maturity_date}
+                      onChange={(e) => setAssetForm({ ...assetForm, maturity_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="field">
+                    <Toggle
+                      checked={assetForm.tax_exempt}
+                      onChange={(v) => setAssetForm({ ...assetForm, tax_exempt: v })}
+                    >
+                      Isento de IR <span style={{ color: "var(--muted)", marginLeft: 4 }}>(LCI/LCA)</span>
+                    </Toggle>
+                  </div>
+                </div>
+              </>
+            )}
+            {assetForm.valuation_mode === "quote" && (
+              <p style={{ fontSize: 11.5, color: "var(--muted)" }}>
+                Preencha o <b>Ticker</b> acima: ações/FIIs pelo código (ex.: PETR4, HGLG11); cripto pelo id do
+                CoinGecko (ex.: bitcoin, ethereum).
+              </p>
+            )}
+
             <div className="field">
               <label>Corretora (opcional)</label>
               <input
@@ -801,6 +967,112 @@ export default function InvestimentosPage() {
           </form>
         </Modal>
       )}
+
+      {detailId !== null && (
+        <Modal
+          title={detail?.name || "Detalhes"}
+          subtitle={
+            detail
+              ? [yieldDescriptor(detail), detail.broker].filter(Boolean).join(" · ") || undefined
+              : undefined
+          }
+          onClose={() => {
+            setDetailId(null);
+            setDetail(null);
+          }}
+        >
+          {detailLoading || !detail ? (
+            <div className="py-8">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                <MiniStat label="Valor atual (bruto)" value={fmtBRL(detail.current_value)} />
+                <MiniStat label="Aportado" value={fmtBRL(detail.aportes_liq)} />
+                <MiniStat
+                  label="Rentabilidade"
+                  value={`${detail.rentabilidade >= 0 ? "+" : ""}${detail.rentabilidade_pct.toFixed(2)}%`}
+                  tone={detail.rentabilidade >= 0 ? "pos" : "neg"}
+                />
+                {detail.maturity_date && (
+                  <MiniStat label="Vencimento" value={fmtDate(detail.maturity_date)} />
+                )}
+              </div>
+
+              {detail.positions && detail.positions.length > 0 ? (
+                <div>
+                  <div className="card-title mb-2">Posição por compra</div>
+                  <div style={{ maxHeight: "42vh", overflowY: "auto" }}>
+                    <table className="tbl">
+                      <thead>
+                        <tr>
+                          <th>Compra</th>
+                          <th style={{ textAlign: "right" }}>Investido</th>
+                          <th style={{ textAlign: "right" }}>Bruto</th>
+                          <th style={{ textAlign: "right" }}>IR</th>
+                          <th style={{ textAlign: "right" }}>Líquido</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detail.positions.map((p, idx) => (
+                          <tr key={idx}>
+                            <td style={{ color: "var(--fg-soft)" }}>{fmtDate(p.date)}</td>
+                            <td className="num" style={{ textAlign: "right" }}>
+                              {fmtBRL(p.invested).replace("R$", "").trim()}
+                            </td>
+                            <td className="num" style={{ textAlign: "right", fontWeight: 500 }}>
+                              {fmtBRL(p.gross).replace("R$", "").trim()}
+                            </td>
+                            <td className="num" style={{ textAlign: "right", color: "var(--muted)" }}>
+                              {fmtBRL(p.ir).replace("R$", "").trim()}
+                            </td>
+                            <td className="num" style={{ textAlign: "right", color: "var(--pos)", fontWeight: 500 }}>
+                              {fmtBRL(p.liquido).replace("R$", "").trim()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
+                    Cálculo automático via CDI/IPCA do Banco Central. IR/IOF estimados; IOF zera após 30 dias.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm" style={{ color: "var(--muted)" }}>
+                  {detail.valuation_mode === "quote"
+                    ? "Valor calculado pela cotação de mercado × quantidade."
+                    : "Sem detalhamento por compra para este ativo."}
+                </p>
+              )}
+            </div>
+          )}
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
+  return (
+    <div
+      style={{
+        border: "1px solid var(--border-soft)",
+        borderRadius: 8,
+        padding: "10px 12px",
+        background: "var(--surface)",
+      }}
+    >
+      <div style={{ fontSize: 10.5, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
+        {label}
+      </div>
+      <div
+        className="num font-display"
+        style={{ fontSize: 17, fontWeight: 600, marginTop: 4, color: tone === "neg" ? "var(--neg)" : tone === "pos" ? "var(--pos)" : "var(--fg)" }}
+      >
+        {value}
+      </div>
     </div>
   );
 }

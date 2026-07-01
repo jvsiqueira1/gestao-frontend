@@ -22,6 +22,8 @@
     --accent: oklch(var(--accent-l) var(--accent-c) var(--accent-h));
     --accent-soft: oklch(94% calc(var(--accent-c) * 0.45) var(--accent-h));
     --accent-ink: oklch(28% calc(var(--accent-c) * 0.9) var(--accent-h));
+    /* Cor de texto que contrasta com --accent (claro no light, escuro no dark). */
+    --accent-contrast: oklch(98% 0 0);
 
     /* Semantic */
     --pos: oklch(50% 0.11 155);
@@ -99,6 +101,8 @@
     --accent: oklch(82% calc(var(--accent-c) * 0.9) var(--accent-h));
     --accent-soft: oklch(25% calc(var(--accent-c) * 1.1) var(--accent-h));
     --accent-ink: oklch(82% calc(var(--accent-c) * 0.9) var(--accent-h));
+    /* No dark o accent é claro (L 82%), então o texto que contrasta é escuro. */
+    --accent-contrast: oklch(20% 0 0);
 
     --pos-soft: oklch(24% 0.06 155);
     --neg-soft: oklch(24% 0.07 30);
@@ -215,15 +219,15 @@
     cursor: not-allowed;
   }
   .btn-primary {
-    background: var(--fg);
-    color: var(--bg);
+    background: var(--accent);
+    color: var(--accent-contrast);
   }
   .btn-primary:hover:not(:disabled) {
-    background: var(--accent-ink);
+    filter: brightness(1.08);
   }
   .btn-accent {
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
   }
   .btn-accent:hover:not(:disabled) {
     filter: brightness(1.08);
