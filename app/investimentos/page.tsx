@@ -33,6 +33,7 @@ import {
   investmentTypeMeta,
   indexTypeMeta,
   fundKindMeta,
+  fundKindNeedsSubclass,
   txTypeMeta,
   formatCnpjInput,
   isValidCnpj,
@@ -290,7 +291,7 @@ export default function InvestimentosPage() {
         cnpj: assetForm.valuation_mode === "cvm_fund" ? assetForm.cnpj : null,
         fund_kind: assetForm.valuation_mode === "cvm_fund" ? assetForm.fund_kind : null,
         fund_subclass:
-          assetForm.valuation_mode === "cvm_fund" && assetForm.fund_kind === "fidc"
+          assetForm.valuation_mode === "cvm_fund" && fundKindNeedsSubclass(assetForm.fund_kind)
             ? assetForm.fund_subclass || null
             : null,
       };
@@ -896,7 +897,7 @@ export default function InvestimentosPage() {
                     </select>
                   </div>
                 </div>
-                {assetForm.fund_kind === "fidc" && (
+                {fundKindNeedsSubclass(assetForm.fund_kind) && (
                   <div className="field">
                     <label>Subclasse</label>
                     <input
