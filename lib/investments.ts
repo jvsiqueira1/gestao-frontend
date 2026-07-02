@@ -2,7 +2,7 @@ export type InvestmentType = "renda_fixa" | "tesouro" | "acoes" | "fiis" | "fund
 export type TxType = "aporte" | "resgate" | "dividendo" | "juros";
 export type ValuationMode = "manual" | "auto_fixed" | "quote" | "cvm_fund";
 export type IndexType = "cdi" | "prefixado" | "ipca";
-export type FundKind = "fi" | "fii" | "fidc";
+export type FundKind = "fi" | "fii" | "fidc" | "fiagro";
 
 export const VALUATION_MODES: { key: ValuationMode; label: string; hint: string }[] = [
   { key: "auto_fixed", label: "Renda fixa automática", hint: "CDI, prefixado ou IPCA+ — calcula sozinho" },
@@ -15,7 +15,11 @@ export const FUND_KINDS: { key: FundKind; label: string; freq: string }[] = [
   { key: "fi", label: "Fundo (FI/FIF)", freq: "cota diária" },
   { key: "fii", label: "FII", freq: "cota mensal" },
   { key: "fidc", label: "FIDC", freq: "cota mensal por subclasse" },
+  { key: "fiagro", label: "FIAGRO", freq: "cota mensal por subclasse" },
 ];
+
+// Tipos de fundo que exigem subclasse no cadastro.
+export const fundKindNeedsSubclass = (k: FundKind | null | undefined) => k === "fidc" || k === "fiagro";
 
 export const fundKindMeta = (key: string | null | undefined) =>
   FUND_KINDS.find((k) => k.key === key) || null;
