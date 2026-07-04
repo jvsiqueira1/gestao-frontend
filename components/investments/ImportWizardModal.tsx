@@ -81,7 +81,7 @@ export default function ImportWizardModal({
       const res = await fetch(apiUrl(API_ENDPOINTS.INVESTMENTS.IMPORT_COMMIT), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ contentHash: preview.contentHash, periodTo: preview.periodTo, assets }),
+        body: JSON.stringify({ periodTo: preview.periodTo, assets, uploadedSnapshots: preview.uploadedSnapshots }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Falha ao importar.");
@@ -137,7 +137,8 @@ export default function ImportWizardModal({
             ) : (
               <div className="grid gap-1.5 place-items-center" style={{ color: "var(--muted)" }}>
                 <UploadSimple size={24} />
-                <span style={{ fontSize: 13 }}>Clique ou arraste os PDFs aqui (pode selecionar todos de uma vez)</span>
+                <span style={{ fontSize: 13 }}>Clique ou arraste os PDFs aqui</span>
+                <span style={{ fontSize: 11 }}>1ª vez: todos os relatórios. Depois: só o mês novo (ou um corrigido).</span>
               </div>
             )}
           </div>

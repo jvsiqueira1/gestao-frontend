@@ -258,11 +258,13 @@ export interface ImportAssetPreview {
 }
 
 export interface ImportPreview {
-  contentHash: string;
   periodFrom: string;
   periodTo: string;
   monthsCount: number;
-  alreadyImported: boolean;
+  storedCount: number;
+  newPeriods: string[];
+  replacedPeriods: string[];
+  uploadedSnapshots: unknown[];
   assets: ImportAssetPreview[];
   warnings: string[];
 }
