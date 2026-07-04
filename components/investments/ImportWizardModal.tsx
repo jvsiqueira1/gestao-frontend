@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { UploadSimple, FilePdf, CheckCircle } from "@phosphor-icons/react";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
 import { ImportPreview, ImportCommitResult } from "../../lib/investments";
-import { fmtBRL, fmtDate } from "../../lib/format";
+import { fmtBRL } from "../../lib/format";
 import Modal from "../ui/Modal";
 import Button from "../Button";
 import LoadingSpinner from "../LoadingSpinner";
@@ -22,37 +22,38 @@ export default function ImportWizardModal({
   onDone: () => void;
 }) {
   const [status, setStatus] = useState<Status>("idle");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [skip, setSkip] = useState<Set<number>>(new Set());
   const [result, setResult] = useState<ImportCommitResult | null>(null);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const pick = (f: File | null) => {
-    if (!f) return;
-    if (f.type !== "application/pdf" && !/\.pdf$/i.test(f.name)) {
-      setError("Selecione um arquivo PDF.");
+  const pick = (list: FileList | null) => {
+    if (!list) return;
+    const pdfs = Array.from(list).filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+    if (!pdfs.length) {
+      setError("Selecione arquivos PDF.");
       return;
     }
     setError("");
-    setFile(f);
+    setFiles(pdfs);
   };
 
   const doPreview = async () => {
-    if (!file) return;
+    if (!files.length) return;
     setStatus("uploading");
     setError("");
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      files.forEach((f) => fd.append("files", f));
       const res = await fetch(apiUrl(API_ENDPOINTS.INVESTMENTS.IMPORT_PREVIEW), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }, // sem Content-Type: o browser define o boundary
         body: fd,
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || "Falha ao ler o relatório.");
+      if (!res.ok) throw new Error(json.error || "Falha ao ler os relatórios.");
       setPreview(json as ImportPreview);
       setSkip(new Set());
       setStatus("preview");
@@ -76,31 +77,11 @@ export default function ImportWizardModal({
     setStatus("committing");
     setError("");
     try {
-      const items = preview.positions
-        .map((p, i) => ({ p, i }))
-        .filter(({ i }) => !skip.has(i))
-        .map(({ p }) => ({
-          action: p.action,
-          investmentId: p.investmentId,
-          parsedName: p.parsedName,
-          saldoBruto: p.saldoBruto,
-          valorAplicado: p.valorAplicado,
-          dataInicial: p.dataInicial,
-          draft: p.draft,
-          corrections: p.corrections,
-          seedAporte: p.seedAporte,
-        }));
-      const body = {
-        contentHash: preview.contentHash,
-        period: preview.report.period,
-        refDate: preview.report.refDate,
-        patrimonioBruto: preview.report.patrimonio.bruto,
-        items,
-      };
+      const assets = preview.assets.map((a, i) => ({ ...a, skip: skip.has(i) }));
       const res = await fetch(apiUrl(API_ENDPOINTS.INVESTMENTS.IMPORT_COMMIT), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ contentHash: preview.contentHash, periodTo: preview.periodTo, assets }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Falha ao importar.");
@@ -112,13 +93,13 @@ export default function ImportWizardModal({
     }
   };
 
-  const nMatched = preview?.positions.filter((p) => p.action === "link").length || 0;
-  const nNew = preview?.positions.filter((p) => p.action === "create").length || 0;
+  const nMatched = preview?.assets.filter((a) => a.action === "link").length || 0;
+  const nNew = preview?.assets.filter((a) => a.action === "create").length || 0;
 
   return (
     <Modal
-      title="Importar relatório BTG"
-      subtitle="Envie um PDF de Relatório de Performance para popular a carteira e o histórico."
+      title="Importar relatórios BTG"
+      subtitle="Envie os PDFs de Relatório de Performance. O histórico é reconstruído a partir deles."
       onClose={onClose}
       size="lg"
     >
@@ -129,7 +110,7 @@ export default function ImportWizardModal({
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
-              pick(e.dataTransfer.files?.[0] || null);
+              pick(e.dataTransfer.files);
             }}
             style={{
               border: "1px dashed var(--border)",
@@ -144,21 +125,19 @@ export default function ImportWizardModal({
               ref={inputRef}
               type="file"
               accept="application/pdf"
+              multiple
               style={{ display: "none" }}
-              onChange={(e) => pick(e.target.files?.[0] || null)}
+              onChange={(e) => pick(e.target.files)}
             />
-            {file ? (
+            {files.length ? (
               <div className="flex items-center justify-center gap-2">
                 <FilePdf size={22} style={{ color: "var(--accent-ink)" }} />
-                <span style={{ fontWeight: 500 }}>{file.name}</span>
-                <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                  ({(file.size / 1024).toFixed(0)} KB)
-                </span>
+                <span style={{ fontWeight: 500 }}>{files.length} PDF{files.length > 1 ? "s" : ""} selecionado{files.length > 1 ? "s" : ""}</span>
               </div>
             ) : (
               <div className="grid gap-1.5 place-items-center" style={{ color: "var(--muted)" }}>
                 <UploadSimple size={24} />
-                <span style={{ fontSize: 13 }}>Clique ou arraste um PDF aqui</span>
+                <span style={{ fontSize: 13 }}>Clique ou arraste os PDFs aqui (pode selecionar todos de uma vez)</span>
               </div>
             )}
           </div>
@@ -167,8 +146,8 @@ export default function ImportWizardModal({
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="button" onClick={doPreview} disabled={!file} loading={status === "uploading"}>
-              {status === "uploading" ? "Lendo o PDF…" : "Enviar"}
+            <Button type="button" onClick={doPreview} disabled={!files.length} loading={status === "uploading"}>
+              {status === "uploading" ? "Lendo os PDFs…" : "Enviar"}
             </Button>
           </div>
         </div>
@@ -176,13 +155,8 @@ export default function ImportWizardModal({
         <div className="grid gap-4">
           <div className="flex items-center gap-2 flex-wrap" style={{ fontSize: 12.5 }}>
             <span style={{ color: "var(--fg-soft)" }}>
-              Período <b>{preview.report.period}</b>
+              {preview.periodFrom} → {preview.periodTo} · <b>{preview.monthsCount} meses</b>
             </span>
-            {preview.report.patrimonio.bruto != null && (
-              <span style={{ color: "var(--fg-soft)" }}>
-                · Patrimônio {fmtBRL(preview.report.patrimonio.bruto)}
-              </span>
-            )}
             <Pill tone="info">{nMatched} reconhecidos</Pill>
             <Pill tone="pos">{nNew} novos</Pill>
           </div>
@@ -197,45 +171,53 @@ export default function ImportWizardModal({
             </div>
           )}
 
-          <div style={{ maxHeight: "50vh", overflowY: "auto" }}>
+          <div style={{ maxHeight: "48vh", overflowY: "auto" }}>
             <table className="tbl">
               <thead>
                 <tr>
                   <th style={{ width: 34 }}></th>
                   <th>Ativo (relatório)</th>
                   <th>Ação</th>
-                  <th style={{ textAlign: "right" }}>Valor</th>
+                  <th style={{ textAlign: "right" }}>Aportado</th>
+                  <th style={{ textAlign: "right" }}>Valor final</th>
+                  <th style={{ textAlign: "right" }}>Lançam.</th>
                 </tr>
               </thead>
               <tbody>
-                {preview.positions.map((p, i) => {
+                {preview.assets.map((a, i) => {
                   const off = skip.has(i);
                   return (
-                    <tr key={i} style={{ opacity: off ? 0.45 : 1 }}>
+                    <tr key={a.key} style={{ opacity: off ? 0.45 : 1 }}>
                       <td>
                         <input type="checkbox" checked={!off} onChange={() => toggleSkip(i)} aria-label="Incluir" />
                       </td>
                       <td>
-                        <div style={{ fontWeight: 500 }}>{p.parsedName}</div>
-                        {p.action === "link" && p.investmentName && (
-                          <div style={{ fontSize: 10.5, color: "var(--muted)" }}>→ {p.investmentName}</div>
+                        <div style={{ fontWeight: 500 }}>{a.parsedName}</div>
+                        {a.action === "link" && a.investmentName && (
+                          <div style={{ fontSize: 10.5, color: "var(--muted)" }}>→ {a.investmentName}</div>
                         )}
                       </td>
                       <td>
-                        {p.action === "link" ? (
+                        {a.action === "link" ? (
                           <div className="flex items-center gap-1.5">
                             <Pill tone="info">vincular</Pill>
-                            {p.corrections && <Pill tone="warn">corrigir</Pill>}
+                            {a.corrections && <Pill tone="warn">corrigir</Pill>}
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5">
                             <Pill tone="pos">criar</Pill>
-                            {p.draft && <InvestmentTypePill type={p.draft.type} />}
+                            {a.draft && <InvestmentTypePill type={a.draft.type} />}
                           </div>
                         )}
                       </td>
+                      <td className="num" style={{ textAlign: "right", color: "var(--fg-soft)" }}>
+                        {fmtBRL(a.aportado).replace("R$", "").trim()}
+                      </td>
                       <td className="num" style={{ textAlign: "right", fontWeight: 500 }}>
-                        {p.saldoBruto == null ? "—" : fmtBRL(p.saldoBruto).replace("R$", "").trim()}
+                        {fmtBRL(a.finalValue).replace("R$", "").trim()}
+                      </td>
+                      <td className="num" style={{ textAlign: "right", color: "var(--muted)" }}>
+                        {a.nTransactions}t · {a.nValuations}v
                       </td>
                     </tr>
                   );
@@ -244,15 +226,15 @@ export default function ImportWizardModal({
             </table>
           </div>
           <p style={{ fontSize: 11, color: "var(--muted)" }}>
-            Cada ativo recebe uma avaliação (valor bruto) na data do relatório. Ativos novos já entram com a
-            avaliação automática correta (CVM/cotação). Reimportar o mesmo mês substitui os valores.
+            A reconstrução <b>substitui</b> os lançamentos existentes destes ativos pelo histórico dos relatórios
+            (aportes/resgates + patrimônio mês a mês). Reimportar o mesmo conjunto apenas atualiza.
           </p>
           {error && <p className="text-xs" style={{ color: "var(--neg)" }}>{error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="button" onClick={doCommit} disabled={skip.size === preview.positions.length}>
+            <Button type="button" onClick={doCommit} disabled={skip.size === preview.assets.length}>
               Confirmar importação
             </Button>
           </div>
@@ -260,7 +242,7 @@ export default function ImportWizardModal({
       ) : status === "committing" ? (
         <div className="py-10 grid place-items-center gap-3">
           <LoadingSpinner />
-          <span style={{ color: "var(--muted)", fontSize: 13 }}>Importando…</span>
+          <span style={{ color: "var(--muted)", fontSize: 13 }}>Importando e reconstruindo o histórico…</span>
         </div>
       ) : status === "done" && result ? (
         <div className="grid gap-4 py-4">
@@ -268,7 +250,8 @@ export default function ImportWizardModal({
             <CheckCircle size={40} weight="fill" style={{ color: "var(--pos)" }} />
             <div style={{ fontWeight: 600 }}>Importação concluída</div>
             <div style={{ color: "var(--muted)", fontSize: 13 }}>
-              {result.created} criados · {result.updated} atualizados · {result.valuationsInserted} avaliações
+              {result.created} criados · {result.updated} atualizados · {result.transactionsInserted} lançamentos ·{" "}
+              {result.valuationsInserted} avaliações
             </div>
           </div>
           <div className="flex justify-end">

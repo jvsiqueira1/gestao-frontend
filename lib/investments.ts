@@ -233,42 +233,44 @@ export interface ImportAssetDraft {
   fund_subclass?: string | null;
 }
 
-export interface ImportPositionPreview {
+export interface ImportReconTx {
+  type: TxType;
+  value: number;
+  date: string;
+}
+
+export interface ImportAssetPreview {
+  key: string;
   parsedName: string;
-  saldoBruto: number | null;
-  valorAplicado: number | null;
-  dataInicial: string | null;
   action: "link" | "create";
   investmentId: number | null;
   investmentName: string | null;
-  confidence: number;
   draft: ImportAssetDraft | null;
   corrections: { fund_kind?: FundKind; type?: InvestmentType; fund_subclass?: string } | null;
-  candidates: { id: number; name: string; score: number }[];
-  seedAporte: boolean;
+  aportado: number;
+  resgatado: number;
+  finalValue: number;
+  nTransactions: number;
+  nValuations: number;
+  transactions: ImportReconTx[];
+  valuations: { date: string; value: number }[];
+  skip?: boolean;
 }
 
 export interface ImportPreview {
   contentHash: string;
-  report: {
-    period: string;
-    refDate: string;
-    periodStart: string;
-    periodEnd: string;
-    conta: string | null;
-    patrimonio: { bruto: number | null; liquido: number | null };
-    monthlyReturn: { portfolioRs: number; portfolioPct: number; cdiPct: number } | null;
-    broker: string;
-  };
+  periodFrom: string;
+  periodTo: string;
+  monthsCount: number;
   alreadyImported: boolean;
-  positions: ImportPositionPreview[];
+  assets: ImportAssetPreview[];
   warnings: string[];
 }
 
 export interface ImportCommitResult {
   created: number;
   updated: number;
+  transactionsInserted: number;
   valuationsInserted: number;
   reportId: number;
-  patrimonioBruto: number | null;
 }
