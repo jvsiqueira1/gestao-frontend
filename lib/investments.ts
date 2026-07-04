@@ -162,3 +162,113 @@ export interface InvestmentSummary {
   allocationByType: { type: InvestmentType; value: number; pct: number }[];
   evolution: { month: string; value: number }[];
 }
+
+// ---- análise (benchmark / TWR / matriz) ----
+export type PeriodKey = "mes" | "ano" | "3m" | "6m" | "12m" | "24m" | "acumulado";
+
+export interface PeriodReturn {
+  period: PeriodKey;
+  label: string;
+  portfolioPct: number | null;
+  portfolioBrl: number | null;
+  cdiPct: number | null;
+  pctOfCdi: number | null;
+  ipcaPct: number | null;
+  clampedToInception: boolean;
+}
+
+export interface MonthlyMatrixRow {
+  year: number;
+  months: (number | null)[]; // 12
+  cdi: (number | null)[]; // 12
+  pctDoCdi: (number | null)[]; // 12
+  noAno: number | null;
+  cdiNoAno: number | null;
+  pctDoCdiNoAno: number | null;
+  acumulado: number | null;
+}
+
+export interface ValuePoint {
+  month: string;
+  date: string;
+  value: number;
+}
+
+export interface AssetAnalytics {
+  id: number;
+  name: string;
+  type: InvestmentType;
+  valuationMode: ValuationMode;
+  currentValue: number;
+  inception: string | null;
+  hasGroundTruth: boolean;
+  returnByPeriod: PeriodReturn[];
+}
+
+export interface InvestmentAnalytics {
+  asOf: string;
+  inception: string | null;
+  benchmarkAsOf: { cdi: string | null; ipca: string | null };
+  portfolio: {
+    currentValue: number;
+    totalAportado: number;
+    totalProventos: number;
+    returnByPeriod: PeriodReturn[];
+    monthlyMatrix: MonthlyMatrixRow[];
+    valueSeries: ValuePoint[];
+  };
+  assets: AssetAnalytics[];
+}
+
+// ---- importação de relatório BTG ----
+export interface ImportAssetDraft {
+  name: string;
+  ticker?: string | null;
+  type: InvestmentType;
+  valuation_mode: ValuationMode;
+  index_type?: IndexType | null;
+  rate?: number | null;
+  cnpj?: string | null;
+  fund_kind?: FundKind | null;
+  fund_subclass?: string | null;
+}
+
+export interface ImportPositionPreview {
+  parsedName: string;
+  saldoBruto: number | null;
+  valorAplicado: number | null;
+  dataInicial: string | null;
+  action: "link" | "create";
+  investmentId: number | null;
+  investmentName: string | null;
+  confidence: number;
+  draft: ImportAssetDraft | null;
+  corrections: { fund_kind?: FundKind; type?: InvestmentType; fund_subclass?: string } | null;
+  candidates: { id: number; name: string; score: number }[];
+  seedAporte: boolean;
+}
+
+export interface ImportPreview {
+  contentHash: string;
+  report: {
+    period: string;
+    refDate: string;
+    periodStart: string;
+    periodEnd: string;
+    conta: string | null;
+    patrimonio: { bruto: number | null; liquido: number | null };
+    monthlyReturn: { portfolioRs: number; portfolioPct: number; cdiPct: number } | null;
+    broker: string;
+  };
+  alreadyImported: boolean;
+  positions: ImportPositionPreview[];
+  warnings: string[];
+}
+
+export interface ImportCommitResult {
+  created: number;
+  updated: number;
+  valuationsInserted: number;
+  reportId: number;
+  patrimonioBruto: number | null;
+}

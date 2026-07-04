@@ -11,6 +11,7 @@ import {
   CaretLeft,
   CaretRight,
   Eye,
+  UploadSimple,
 } from "@phosphor-icons/react";
 import { useAuth } from "../../context/AuthContext";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
@@ -26,6 +27,7 @@ import {
   InvestmentSummary,
   InvestmentTransaction,
   InvestmentType,
+  InvestmentAnalytics,
   ValuationMode,
   IndexType,
   FundKind,
@@ -48,8 +50,10 @@ import InvestmentTypePill from "../../components/ui/InvestmentTypePill";
 import Donut from "../../components/charts/Donut";
 import LineSeries from "../../components/charts/LineSeries";
 import { Card, CardHead, CardTitle, CardSub } from "../../components/ui/Card";
+import AnaliseSection from "../../components/investments/AnaliseSection";
+import ImportWizardModal from "../../components/investments/ImportWizardModal";
 
-type View = "carteira" | "lancamentos";
+type View = "carteira" | "lancamentos" | "analise";
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -80,10 +84,12 @@ export default function InvestimentosPage() {
 
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [summary, setSummary] = useState<InvestmentSummary | null>(null);
+  const [analytics, setAnalytics] = useState<InvestmentAnalytics | null>(null);
   const [transactions, setTransactions] = useState<InvestmentTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>("carteira");
   const [search, setSearch] = useState("");
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [editAssetId, setEditAssetId] = useState<number | null>(null);
@@ -164,7 +170,7 @@ export default function InvestimentosPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [listRes, sumRes, txRes] = await Promise.all([
+      const [listRes, sumRes, txRes, anRes] = await Promise.all([
         fetch(apiUrl(API_ENDPOINTS.INVESTMENTS.BASE), { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${apiUrl(API_ENDPOINTS.INVESTMENTS.SUMMARY)}?month=${month}&year=${year}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -172,11 +178,13 @@ export default function InvestimentosPage() {
         fetch(`${apiUrl(API_ENDPOINTS.INVESTMENTS.TRANSACTIONS)}?month=${month}&year=${year}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+        fetch(apiUrl(API_ENDPOINTS.INVESTMENTS.ANALYTICS), { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-      const [l, s, t] = await Promise.all([listRes.json(), sumRes.json(), txRes.json()]);
+      const [l, s, t, a] = await Promise.all([listRes.json(), sumRes.json(), txRes.json(), anRes.json().catch(() => null)]);
       setInvestments(Array.isArray(l) ? l : []);
       setSummary(s);
       setTransactions(Array.isArray(t) ? t : []);
+      setAnalytics(a && a.portfolio ? a : null);
     } finally {
       setLoading(false);
     }
@@ -457,6 +465,9 @@ export default function InvestimentosPage() {
           >
             <ArrowsClockwise size={14} className={refreshing ? "animate-spin" : undefined} />
           </button>
+          <button className="btn btn-outline" onClick={() => setShowImportModal(true)} title="Importar relatório de performance (PDF)">
+            <UploadSimple size={14} /> Importar PDF
+          </button>
           <button className="btn btn-outline" onClick={() => openTxModal()}>
             <Receipt size={14} /> Novo lançamento
           </button>
@@ -483,6 +494,26 @@ export default function InvestimentosPage() {
           tone={summary?.totalRentabilidade && summary.totalRentabilidade < 0 ? "neg" : "pos"}
         />
         <Stat label="Aportado" value={fmtBRL(summary?.totalAportado || 0)} hint={`+ ${fmtBRL(summary?.totalProventos || 0)} em proventos`} />
+        {(() => {
+          const p12 = analytics?.portfolio.returnByPeriod.find((p) => p.period === "12m");
+          const port = p12?.portfolioPct;
+          const cdi = p12?.cdiPct;
+          return (
+            <>
+              <Stat
+                label="Rentab. vs CDI (12m)"
+                value={port != null ? `${port >= 0 ? "+" : ""}${port.toFixed(1)}%` : "—"}
+                hint={cdi != null ? `CDI ${cdi.toFixed(1)}%` : undefined}
+                tone={port != null && cdi != null ? (port >= cdi ? "pos" : "neg") : undefined}
+              />
+              <Stat
+                label="% do CDI (12m)"
+                value={p12?.pctOfCdi != null ? `${p12.pctOfCdi.toFixed(0)}%` : "—"}
+                hint={p12?.pctOfCdi != null ? (p12.pctOfCdi >= 100 ? "acima do CDI" : "abaixo do CDI") : undefined}
+              />
+            </>
+          );
+        })()}
       </div>
 
       <div
@@ -550,34 +581,39 @@ export default function InvestimentosPage() {
                   </>
                 ),
               },
+              { value: "analise", label: <>Análise</> },
             ]}
           />
-          <div
-            className="flex items-center gap-2"
-            style={{
-              height: 30,
-              padding: "0 10px",
-              background: "var(--surface)",
-              borderRadius: 8,
-              border: "1px solid var(--border-soft)",
-              width: 220,
-            }}
-          >
-            <MagnifyingGlass size={14} style={{ color: "var(--muted)" }} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar…"
-              className="w-full bg-transparent outline-none"
-              style={{ fontSize: 12.5 }}
-            />
-          </div>
+          {view !== "analise" && (
+            <div
+              className="flex items-center gap-2"
+              style={{
+                height: 30,
+                padding: "0 10px",
+                background: "var(--surface)",
+                borderRadius: 8,
+                border: "1px solid var(--border-soft)",
+                width: 220,
+              }}
+            >
+              <MagnifyingGlass size={14} style={{ color: "var(--muted)" }} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar…"
+                className="w-full bg-transparent outline-none"
+                style={{ fontSize: 12.5 }}
+              />
+            </div>
+          )}
         </div>
 
         {loading ? (
           <div className="p-12">
             <LoadingSpinner size="lg" />
           </div>
+        ) : view === "analise" ? (
+          <AnaliseSection data={analytics} />
         ) : view === "carteira" ? (
           carteiraFiltered.length === 0 ? (
             <div className="p-10 text-center text-sm" style={{ color: "var(--muted)" }}>
@@ -1186,6 +1222,14 @@ export default function InvestimentosPage() {
             </div>
           )}
         </Modal>
+      )}
+
+      {showImportModal && (
+        <ImportWizardModal
+          token={token}
+          onClose={() => setShowImportModal(false)}
+          onDone={fetchAll}
+        />
       )}
     </div>
   );
