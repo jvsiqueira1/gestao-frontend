@@ -7,6 +7,7 @@ import {
   PencilSimple,
   Trash,
   Repeat,
+  WarningCircle,
   MagnifyingGlass,
 } from "@phosphor-icons/react";
 import { useAuth } from "../../context/AuthContext";
@@ -34,6 +35,7 @@ interface Income {
   recurrenceType?: string;
   startDate?: string;
   endDate?: string;
+  fixed_income_id?: number | null;
 }
 
 interface FixedIncome {
@@ -54,7 +56,7 @@ interface Category {
   color?: string | null;
 }
 
-type ViewMode = "all" | "fixed";
+type ViewMode = "all" | "fixed" | "pending";
 type EditTarget = { kind: "occurrence"; id: number } | { kind: "fixed"; id: number } | null;
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -86,6 +88,7 @@ export default function RendasPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [registering, setRegistering] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -135,6 +138,7 @@ export default function RendasPage() {
 
   const realized = incomes.filter((e) => !e.pending);
   const total = realized.reduce((s, e) => s + parseFloat(String(e.value)), 0);
+  const pending = incomes.filter((e) => e.pending);
   const fixedTotal = fixedTemplates
     .filter((f) => f.recurrenceType === "monthly")
     .reduce((s, f) => s + parseFloat(String(f.value)), 0);
@@ -144,6 +148,9 @@ export default function RendasPage() {
   );
   const templatesFiltered = fixedTemplates.filter((f) =>
     search.trim() ? f.description.toLowerCase().includes(search.trim().toLowerCase()) : true
+  );
+  const pendingFiltered = pending.filter((e) =>
+    search.trim() ? e.description.toLowerCase().includes(search.trim().toLowerCase()) : true
   );
 
   const resetForm = () => {
@@ -282,6 +289,35 @@ export default function RendasPage() {
     }
   };
 
+  const registerPending = async (e: Income) => {
+    setRegistering(true);
+    try {
+      let fixedIncomeId: number | null = null;
+      const idStr = String(e.id);
+      if (idStr.startsWith("pending-")) {
+        const parts = idStr.split("-");
+        if (parts.length >= 2) fixedIncomeId = parseInt(parts[1]);
+      } else if (typeof e.id === "number") {
+        fixedIncomeId = e.id;
+      }
+      await fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          description: e.description,
+          value: e.value,
+          date: e.date,
+          category_id: e.category_id,
+          isFixed: false,
+          fixed_income_id: fixedIncomeId,
+        }),
+      });
+      fetchData();
+    } finally {
+      setRegistering(false);
+    }
+  };
+
   const selectableIds = occurrencesFiltered
     .filter((e) => typeof e.id === "number")
     .map((e) => e.id as number);
@@ -320,7 +356,8 @@ export default function RendasPage() {
     }
   };
 
-  const createLabel = view === "fixed" ? "Nova renda fixa" : "Nova renda";
+  const createLabel =
+    view === "fixed" ? "Nova renda fixa" : view === "pending" ? "Registrar nova" : "Nova renda";
   const modalTitle =
     editTarget?.kind === "fixed"
       ? "Editar renda fixa"
@@ -378,7 +415,23 @@ export default function RendasPage() {
           )}
           hint={`${realized.filter((i) => !i.isFixed).length} lançamentos`}
         />
+        <Stat label="Pendentes" value={String(pending.length)} hint="fixas a registrar" accent={pending.length > 0} />
       </div>
+
+      {pending.length > 0 && view !== "pending" && (
+        <div className="banner">
+          <WarningCircle size={16} />
+          <div className="flex-1">
+            <b>
+              {pending.length} renda{pending.length > 1 ? "s" : ""} fixa{pending.length > 1 ? "s" : ""} pendente{pending.length > 1 ? "s" : ""}
+            </b>{" "}
+            <span style={{ color: "var(--muted)" }}>para registrar neste mês.</span>
+          </div>
+          <button className="btn btn-outline btn-sm" onClick={() => setView("pending")}>
+            Ver pendentes
+          </button>
+        </div>
+      )}
 
       <div className="tbl-wrap">
         <div className="tbl-head">
@@ -399,6 +452,14 @@ export default function RendasPage() {
                 label: (
                   <>
                     Fixas <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>{fixedTemplates.length}</span>
+                  </>
+                ),
+              },
+              {
+                value: "pending",
+                label: (
+                  <>
+                    Pendentes <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>{pending.length}</span>
                   </>
                 ),
               },
@@ -550,6 +611,71 @@ export default function RendasPage() {
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          )
+        ) : view === "pending" ? (
+          pendingFiltered.length === 0 ? (
+            <div className="p-10 text-center text-sm" style={{ color: "var(--muted)" }}>
+              Nenhuma renda fixa pendente.
+            </div>
+          ) : (
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th style={{ width: "40%" }}>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Data prevista</th>
+                  <th style={{ textAlign: "right" }}>Valor</th>
+                  <th style={{ width: 120 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingFiltered.map((e) => (
+                  <tr key={e.id} style={{ background: "var(--warn-soft)" }}>
+                    <td>
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="grid place-items-center"
+                          style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 8,
+                            background: "var(--warn-soft)",
+                            color: "var(--fg-soft)",
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            border: "1px solid var(--border-soft)",
+                          }}
+                        >
+                          {(e.description || "?")[0].toUpperCase()}
+                        </span>
+                        <span style={{ fontWeight: 500 }}>{e.description}</span>
+                      </div>
+                    </td>
+                    <td>
+                      {e.category_name && (
+                        <CatChip
+                          name={e.category_name}
+                          color={categoryColor(e.category_id ?? e.category_name, e.category_color)}
+                        />
+                      )}
+                    </td>
+                    <td style={{ color: "var(--fg-soft)" }}>{fmtDate(e.date)}</td>
+                    <td className="num" style={{ textAlign: "right", color: "var(--pos)", fontWeight: 500 }}>
+                      +{fmtBRL(parseFloat(String(e.value))).replace("R$", "").trim()}
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-sm btn-outline"
+                        onClick={() => registerPending(e)}
+                        disabled={registering}
+                      >
+                        Registrar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )
@@ -798,7 +924,17 @@ export default function RendasPage() {
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  accent?: boolean;
+}) {
   return (
     <div className="card" style={{ padding: 18 }}>
       <div
@@ -812,7 +948,10 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
       >
         {label}
       </div>
-      <div className="font-display num" style={{ fontSize: 24, marginTop: 8, fontWeight: 600 }}>
+      <div
+        className="font-display num"
+        style={{ fontSize: 24, marginTop: 8, fontWeight: 600, color: accent ? "var(--accent-ink)" : "var(--fg)" }}
+      >
         {value}
       </div>
       {hint && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6 }}>{hint}</div>}
