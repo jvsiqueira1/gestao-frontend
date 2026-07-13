@@ -7,6 +7,7 @@ import {
   PencilSimple,
   Trash,
   Repeat,
+  CreditCard,
   WarningCircle,
   MagnifyingGlass,
 } from "@phosphor-icons/react";
@@ -14,6 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 import { apiUrl, API_ENDPOINTS } from "../../lib/api";
 import { bulkDelete } from "../../lib/bulk";
 import { fmtBRL, fmtDate, MONTH_NAMES_FULL } from "../../lib/format";
+import { InstallmentGroup, installmentPreview } from "../../lib/installments";
 import Button from "../../components/Button";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import Modal from "../../components/ui/Modal";
@@ -36,6 +38,9 @@ interface Income {
   startDate?: string;
   endDate?: string;
   fixed_income_id?: number | null;
+  installment_group_id?: string | null;
+  installment_number?: number | null;
+  installment_total?: number | null;
 }
 
 interface FixedIncome {
@@ -56,8 +61,13 @@ interface Category {
   color?: string | null;
 }
 
-type ViewMode = "all" | "fixed" | "pending";
-type EditTarget = { kind: "occurrence"; id: number } | { kind: "fixed"; id: number } | null;
+type ViewMode = "all" | "fixed" | "pending" | "installments";
+type CreateMode = "avulsa" | "fixa" | "parcelada";
+type EditTarget =
+  | { kind: "occurrence"; id: number }
+  | { kind: "fixed"; id: number }
+  | { kind: "installment"; groupId: string }
+  | null;
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -69,6 +79,7 @@ export default function RendasPage() {
 
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [fixedTemplates, setFixedTemplates] = useState<FixedIncome[]>([]);
+  const [installmentGroups, setInstallmentGroups] = useState<InstallmentGroup[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("all");
@@ -76,6 +87,7 @@ export default function RendasPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<EditTarget>(null);
+  const [createMode, setCreateMode] = useState<CreateMode>("avulsa");
   const [formData, setFormData] = useState({
     description: "",
     value: "",
@@ -85,9 +97,11 @@ export default function RendasPage() {
     recurrenceType: "monthly",
     startDate: today(),
     endDate: "",
+    installments: "2",
   });
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [deletingGroup, setDeletingGroup] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -103,20 +117,29 @@ export default function RendasPage() {
     setSelectedIds(new Set());
     try {
       const params = `?month=${month}&year=${year}`;
-      const [iRes, fRes, cRes] = await Promise.all([
+      const [iRes, fRes, insRes, cRes] = await Promise.all([
         fetch(apiUrl(API_ENDPOINTS.FINANCE.INCOME) + params, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(apiUrl(API_ENDPOINTS.FIXED_INCOMES), {
           headers: { Authorization: `Bearer ${token}` },
         }),
+        fetch(apiUrl(API_ENDPOINTS.INSTALLMENT_INCOMES), {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
         fetch(apiUrl(API_ENDPOINTS.CATEGORY), {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
-      const [iData, fData, cData] = await Promise.all([iRes.json(), fRes.json(), cRes.json()]);
+      const [iData, fData, insData, cData] = await Promise.all([
+        iRes.json(),
+        fRes.json(),
+        insRes.json(),
+        cRes.json(),
+      ]);
       setIncomes(Array.isArray(iData) ? iData : []);
       setFixedTemplates(Array.isArray(fData) ? fData : []);
+      setInstallmentGroups(Array.isArray(insData) ? insData : []);
       setCategories(Array.isArray(cData) ? cData.filter((c: Category) => c.type === "income") : []);
     } finally {
       setLoading(false);
@@ -153,6 +176,10 @@ export default function RendasPage() {
     search.trim() ? e.description.toLowerCase().includes(search.trim().toLowerCase()) : true
   );
 
+  const installmentsFiltered = installmentGroups.filter((g) =>
+    search.trim() ? g.description.toLowerCase().includes(search.trim().toLowerCase()) : true
+  );
+
   const resetForm = () => {
     setFormData({
       description: "",
@@ -163,13 +190,14 @@ export default function RendasPage() {
       recurrenceType: "monthly",
       startDate: today(),
       endDate: "",
+      installments: "2",
     });
     setEditTarget(null);
   };
 
   const openCreate = () => {
     resetForm();
-    setFormData((f) => ({ ...f, isFixed: view === "fixed" }));
+    setCreateMode(view === "fixed" ? "fixa" : view === "installments" ? "parcelada" : "avulsa");
     setShowForm(true);
   };
 
@@ -184,6 +212,7 @@ export default function RendasPage() {
       recurrenceType: e.recurrenceType || "monthly",
       startDate: e.startDate ? new Date(e.startDate).toISOString().split("T")[0] : today(),
       endDate: e.endDate ? new Date(e.endDate).toISOString().split("T")[0] : "",
+      installments: "2",
     });
     setShowForm(true);
   };
@@ -199,6 +228,23 @@ export default function RendasPage() {
       recurrenceType: f.recurrenceType,
       startDate: f.startDate.split("T")[0],
       endDate: f.endDate ? f.endDate.split("T")[0] : "",
+      installments: "2",
+    });
+    setShowForm(true);
+  };
+
+  const openEditInstallment = (g: InstallmentGroup) => {
+    setEditTarget({ kind: "installment", groupId: g.group_id });
+    setFormData({
+      description: g.description,
+      value: String(g.total_value),
+      date: g.first_date ? new Date(g.first_date).toISOString().split("T")[0] : today(),
+      category_id: g.category_id ? String(g.category_id) : "",
+      isFixed: false,
+      recurrenceType: "monthly",
+      startDate: today(),
+      endDate: "",
+      installments: String(g.installment_total),
     });
     setShowForm(true);
   };
@@ -207,7 +253,45 @@ export default function RendasPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (editTarget?.kind === "fixed") {
+      if (editTarget?.kind === "installment") {
+        // PUT /installment-incomes/:groupId — edita descrição/categoria do recebimento
+        const body = {
+          description: formData.description,
+          category_id: formData.category_id ? parseInt(formData.category_id) : null,
+        };
+        const res = await fetch(
+          `${apiUrl(API_ENDPOINTS.INSTALLMENT_INCOMES)}/${editTarget.groupId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify(body),
+          }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || "Erro ao salvar.");
+          return;
+        }
+      } else if (!editTarget && createMode === "parcelada") {
+        // POST /installment-incomes — cria o recebimento parcelado (materializa N parcelas)
+        const body = {
+          description: formData.description,
+          totalValue: parseFloat(formData.value),
+          installments: parseInt(formData.installments),
+          firstDate: formData.date,
+          category_id: formData.category_id ? parseInt(formData.category_id) : null,
+        };
+        const res = await fetch(apiUrl(API_ENDPOINTS.INSTALLMENT_INCOMES), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || "Erro ao salvar.");
+          return;
+        }
+      } else if (editTarget?.kind === "fixed") {
         const body = {
           description: formData.description,
           value: parseFloat(formData.value),
@@ -227,6 +311,7 @@ export default function RendasPage() {
           return;
         }
       } else {
+        const isFixed = editTarget ? formData.isFixed : createMode === "fixa";
         const url =
           editTarget?.kind === "occurrence"
             ? `${apiUrl(API_ENDPOINTS.FINANCE.INCOME)}/${editTarget.id}`
@@ -237,10 +322,10 @@ export default function RendasPage() {
           value: parseFloat(formData.value),
           date: formData.date,
           category_id: formData.category_id ? parseInt(formData.category_id) : null,
-          isFixed: formData.isFixed,
-          recurrenceType: formData.isFixed ? formData.recurrenceType : null,
-          startDate: formData.isFixed ? formData.startDate : null,
-          endDate: formData.isFixed && formData.endDate ? formData.endDate : null,
+          isFixed,
+          recurrenceType: isFixed ? formData.recurrenceType : null,
+          startDate: isFixed ? formData.startDate : null,
+          endDate: isFixed && formData.endDate ? formData.endDate : null,
         };
         const res = await fetch(url, {
           method,
@@ -286,6 +371,25 @@ export default function RendasPage() {
       fetchData();
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const removeInstallment = async (groupId: string, total: number) => {
+    if (
+      !confirm(
+        `Excluir este recebimento parcelado? Todas as ${total} parcela${total > 1 ? "s" : ""} serão removidas.`
+      )
+    )
+      return;
+    setDeletingGroup(groupId);
+    try {
+      await fetch(`${apiUrl(API_ENDPOINTS.INSTALLMENT_INCOMES)}/${groupId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchData();
+    } finally {
+      setDeletingGroup(null);
     }
   };
 
@@ -357,15 +461,44 @@ export default function RendasPage() {
   };
 
   const createLabel =
-    view === "fixed" ? "Nova renda fixa" : view === "pending" ? "Registrar nova" : "Nova renda";
+    view === "fixed"
+      ? "Nova renda fixa"
+      : view === "installments"
+      ? "Novo recebimento parcelado"
+      : view === "pending"
+      ? "Registrar nova"
+      : "Nova renda";
   const modalTitle =
     editTarget?.kind === "fixed"
       ? "Editar renda fixa"
+      : editTarget?.kind === "installment"
+      ? "Editar recebimento parcelado"
       : editTarget?.kind === "occurrence"
       ? "Editar renda"
       : view === "fixed"
       ? "Nova renda fixa"
+      : view === "installments"
+      ? "Novo recebimento parcelado"
       : "Nova renda";
+
+  // Estado derivado do formulário (create-mode vs alvo de edição).
+  const isCreate = !editTarget;
+  const editKind = editTarget?.kind ?? null;
+  const showParcelas = isCreate && createMode === "parcelada";
+  const showValor = editKind !== "installment";
+  const showData =
+    editKind === "occurrence" || (isCreate && (createMode === "avulsa" || createMode === "parcelada"));
+  const showFixedToggle = editKind === "occurrence";
+  const showRecurrence =
+    (isCreate && createMode === "fixa") ||
+    editKind === "fixed" ||
+    (editKind === "occurrence" && formData.isFixed);
+  const fieldCols = showParcelas ? 3 : showValor && showData ? 2 : 1;
+  const preview = installmentPreview(
+    parseFloat(formData.value),
+    parseInt(formData.installments),
+    formData.date
+  );
 
   return (
     <div>
@@ -452,6 +585,14 @@ export default function RendasPage() {
                 label: (
                   <>
                     Fixas <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>{fixedTemplates.length}</span>
+                  </>
+                ),
+              },
+              {
+                value: "installments",
+                label: (
+                  <>
+                    Parceladas <span className="num" style={{ marginLeft: 4, opacity: 0.6 }}>{installmentGroups.length}</span>
                   </>
                 ),
               },
@@ -614,6 +755,104 @@ export default function RendasPage() {
               </tbody>
             </table>
           )
+        ) : view === "installments" ? (
+          installmentsFiltered.length === 0 ? (
+            <div className="p-10 text-center text-sm" style={{ color: "var(--muted)" }}>
+              Nenhum recebimento parcelado.
+            </div>
+          ) : (
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th style={{ width: "34%" }}>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Parcelas</th>
+                  <th style={{ textAlign: "right" }}>Valor parcela</th>
+                  <th style={{ textAlign: "right" }}>Total</th>
+                  <th>Período</th>
+                  <th style={{ width: 80 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {installmentsFiltered.map((g) => {
+                  const catName =
+                    g.category?.name || categories.find((c) => c.id === g.category_id)?.name;
+                  return (
+                    <tr key={g.group_id}>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="grid place-items-center"
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 8,
+                              background: "var(--surface)",
+                              color: "var(--fg-soft)",
+                              border: "1px solid var(--border-soft)",
+                            }}
+                          >
+                            <CreditCard size={15} />
+                          </span>
+                          <div>
+                            <div style={{ fontWeight: 500 }}>{g.description}</div>
+                            <div
+                              className="inline-flex items-center gap-1"
+                              style={{
+                                fontSize: 10.5,
+                                color: "var(--muted)",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.08em",
+                              }}
+                            >
+                              <CreditCard size={10} /> parcelado
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        {catName && (
+                          <CatChip
+                            name={catName}
+                            color={categoryColor(
+                              g.category_id ?? catName,
+                              categories.find((c) => c.id === g.category_id)?.color
+                            )}
+                          />
+                        )}
+                      </td>
+                      <td>
+                        <Pill tone="info">{g.installment_total}x</Pill>
+                      </td>
+                      <td className="num" style={{ textAlign: "right", color: "var(--fg-soft)" }}>
+                        {fmtBRL(g.value_per_installment)}
+                      </td>
+                      <td className="num" style={{ textAlign: "right", color: "var(--pos)", fontWeight: 500 }}>
+                        +{fmtBRL(g.total_value).replace("R$", "").trim()}
+                      </td>
+                      <td style={{ color: "var(--fg-soft)" }}>
+                        {fmtDate(g.first_date)} → {fmtDate(g.last_date)}
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <button aria-label="Editar" onClick={() => openEditInstallment(g)}>
+                            <PencilSimple size={14} />
+                          </button>
+                          <button
+                            aria-label="Excluir"
+                            onClick={() => removeInstallment(g.group_id, g.installment_total)}
+                            disabled={deletingGroup === g.group_id}
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )
         ) : view === "pending" ? (
           pendingFiltered.length === 0 ? (
             <div className="p-10 text-center text-sm" style={{ color: "var(--muted)" }}>
@@ -737,7 +976,19 @@ export default function RendasPage() {
                       </span>
                       <div>
                         <div style={{ fontWeight: 500 }}>{e.description}</div>
-                        {e.isFixed && (
+                        {e.installment_total ? (
+                          <div
+                            className="inline-flex items-center gap-1"
+                            style={{
+                              fontSize: 10.5,
+                              color: "var(--muted)",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            <CreditCard size={10} /> parcela {e.installment_number}/{e.installment_total}
+                          </div>
+                        ) : e.isFixed ? (
                           <div
                             className="inline-flex items-center gap-1"
                             style={{
@@ -749,7 +1000,7 @@ export default function RendasPage() {
                           >
                             <Repeat size={10} /> recorrente
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </td>
@@ -765,7 +1016,15 @@ export default function RendasPage() {
                   <td className="num" style={{ textAlign: "right", color: "var(--pos)", fontWeight: 500 }}>
                     +{fmtBRL(parseFloat(String(e.value))).replace("R$", "").trim()}
                   </td>
-                  <td>{e.isFixed ? <Pill tone="info">fixa</Pill> : <Pill>avulsa</Pill>}</td>
+                  <td>
+                    {e.installment_total ? (
+                      <Pill tone="info">parcelado</Pill>
+                    ) : e.isFixed ? (
+                      <Pill tone="info">fixa</Pill>
+                    ) : (
+                      <Pill>avulsa</Pill>
+                    )}
+                  </td>
                   <td>
                     <div className="row-actions">
                       <button aria-label="Editar" onClick={() => openEditOccurrence(e)}>
@@ -791,8 +1050,12 @@ export default function RendasPage() {
         <Modal
           title={modalTitle}
           subtitle={
-            editTarget?.kind === "fixed" || (view === "fixed" && !editTarget)
+            editKind === "installment"
+              ? "Edite a descrição e a categoria do recebimento parcelado."
+              : editKind === "fixed" || (isCreate && createMode === "fixa")
               ? "Configure uma renda recorrente."
+              : isCreate && createMode === "parcelada"
+              ? "Divida um recebimento em parcelas mensais."
               : `Registre uma renda em ${MONTH_NAMES_FULL[month - 1]} de ${year}.`
           }
           onClose={() => {
@@ -801,6 +1064,20 @@ export default function RendasPage() {
           }}
         >
           <form onSubmit={submit} className="grid gap-3.5">
+            {isCreate && (
+              <div className="field">
+                <label>Tipo</label>
+                <Segmented<CreateMode>
+                  value={createMode}
+                  onChange={(m) => setCreateMode(m)}
+                  options={[
+                    { value: "avulsa", label: "Avulsa" },
+                    { value: "fixa", label: "Fixa" },
+                    { value: "parcelada", label: "Parcelada" },
+                  ]}
+                />
+              </div>
+            )}
             <div className="field">
               <label>Descrição</label>
               <input
@@ -812,33 +1089,53 @@ export default function RendasPage() {
                 placeholder="Ex: Salário, Freela…"
               />
             </div>
-            <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
-              <div className="field">
-                <label>Valor</label>
-                <input
-                  className="input input-currency"
-                  required
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={formData.value}
-                  onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                  placeholder="0,00"
-                />
+            {(showValor || showData || showParcelas) && (
+              <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${fieldCols}, 1fr)` }}>
+                {showValor && (
+                  <div className="field">
+                    <label>{showParcelas ? "Valor total" : "Valor"}</label>
+                    <input
+                      className="input input-currency"
+                      required
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={formData.value}
+                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                      placeholder="0,00"
+                    />
+                  </div>
+                )}
+                {showParcelas && (
+                  <div className="field">
+                    <label>Nº de parcelas</label>
+                    <input
+                      className="input"
+                      required
+                      type="number"
+                      step="1"
+                      min="2"
+                      max="360"
+                      value={formData.installments}
+                      onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
+                      placeholder="2"
+                    />
+                  </div>
+                )}
+                {showData && (
+                  <div className="field">
+                    <label>{showParcelas ? "Data da 1ª parcela" : "Data"}</label>
+                    <input
+                      className="input"
+                      required
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    />
+                  </div>
+                )}
               </div>
-              {editTarget?.kind !== "fixed" && !(view === "fixed" && !editTarget) && (
-                <div className="field">
-                  <label>Data</label>
-                  <input
-                    className="input"
-                    required
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  />
-                </div>
-              )}
-            </div>
+            )}
             <div className="field">
               <label>Categoria</label>
               <select
@@ -857,7 +1154,31 @@ export default function RendasPage() {
                 ))}
               </select>
             </div>
-            {editTarget?.kind !== "fixed" && (
+            {showParcelas && preview.valid && (
+              <div
+                className="flex items-center gap-2"
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  background: "var(--surface)",
+                  border: "1px solid var(--border-soft)",
+                  fontSize: 12.5,
+                }}
+              >
+                <CreditCard size={16} style={{ color: "var(--muted)" }} />
+                <span>
+                  <b>
+                    {preview.count}x de {fmtBRL(preview.perInstallment)}
+                    {!preview.even ? " (1ª parcela)" : ""}
+                  </b>
+                  <span style={{ color: "var(--muted)" }}>
+                    {" · total "}
+                    {fmtBRL(preview.total)} · {preview.firstLabel} → {preview.lastLabel}
+                  </span>
+                </span>
+              </div>
+            )}
+            {showFixedToggle && (
               <Toggle
                 checked={formData.isFixed}
                 onChange={(v) =>
@@ -868,7 +1189,7 @@ export default function RendasPage() {
                 <span style={{ color: "var(--muted)", marginLeft: 4 }}>— se repete todo mês/ano</span>
               </Toggle>
             )}
-            {(formData.isFixed || editTarget?.kind === "fixed") && (
+            {showRecurrence && (
               <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
                 <div className="field">
                   <label>Recorrência</label>

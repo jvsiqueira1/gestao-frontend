@@ -19,6 +19,8 @@ export const API_ENDPOINTS = {
   GOAL: "/goal",
   FIXED_INCOMES: "/fixed-incomes",
   FIXED_EXPENSES: "/fixed-expenses",
+  INSTALLMENT_INCOMES: "/installment-incomes",
+  INSTALLMENT_EXPENSES: "/installment-expenses",
   INVESTMENTS: {
     BASE: "/investments",
     SUMMARY: "/investments/summary",
